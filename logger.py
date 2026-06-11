@@ -1,17 +1,24 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-def setup_logger(log_file, max_bytes=10*1024*1024, backup_count=5):
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
+# Logger setup function
+
+def setup_logger(logger_name, log_file, level=logging.INFO):
+    handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=10)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
+
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(level)
     logger.addHandler(handler)
+
     return logger
 
+# Example of using the logger setup
+def main():
+    my_logger = setup_logger('game_logger', 'game_performance.log')
+    my_logger.info('Starting the game performance logging')
+    my_logger.warning('This is a warning message')
+
 if __name__ == '__main__':
-    log = setup_logger('game_log.log')
-    log.info('Logger setup complete')
-    log.error('This is an error message')
-    log.debug('This is a debug message')
+    main()
