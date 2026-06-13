@@ -1,24 +1,25 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-# Logger setup function
+# Create a custom logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-def setup_logger(logger_name, log_file, level=logging.INFO):
-    handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=10)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
+# Create handlers
+handler = RotatingFileHandler('game_performance.log', maxBytes=5*1024*1024, backupCount=5)
+handler.setLevel(logging.DEBUG)
 
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
+# Create formatters and add it to the handlers
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
 
-    return logger
+# Add the handlers to the logger
+logger.addHandler(handler)
 
-# Example of using the logger setup
-def main():
-    my_logger = setup_logger('game_logger', 'game_performance.log')
-    my_logger.info('Starting the game performance logging')
-    my_logger.warning('This is a warning message')
-
+# Simple test logging
 if __name__ == '__main__':
-    main()
+    logger.debug('This is a debug message')
+    logger.info('This is an info message')
+    logger.warning('This is a warning message')
+    logger.error('This is an error message')
+    logger.critical('This is a critical message')
