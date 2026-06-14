@@ -1,42 +1,45 @@
-import random
-import logging
-
-logging.basicConfig(level=logging.ERROR)
-
-def get_random_item(items):
-    try:
-        if not items:
-            raise ValueError('The items list cannot be empty.')
-        return random.choice(items)
-    except TypeError:
-        logging.error('Provided items is not a list.')
-        return None
-    except ValueError as ve:
-        logging.error(ve)
-        return None
+from typing import List, Dict, Any
 
 
-def safe_divide(numerator, denominator):
-    try:
-        if denominator == 0:
-            raise ZeroDivisionError('Denominator cannot be zero.')
-        return numerator / denominator
-    except TypeError:
-        logging.error('Both numerator and denominator must be numbers.')
-        return None
-    except ZeroDivisionError as zde:
-        logging.error(zde)
-        return None
+def calculate_average(scores: List[float]) -> float:
+    """
+    Calculate the average of a list of scores.
+
+    Args:
+        scores (List[float]): A list of numerical scores.
+
+    Returns:
+        float: The average of the provided scores.
+    """
+    if not scores:
+        return 0.0
+    return sum(scores) / len(scores)
 
 
-def fetch_user_score(user_id, scores_dict):
-    try:
-        if user_id not in scores_dict:
-            raise KeyError(f'User ID {user_id} not found in scores.')
-        return scores_dict[user_id]
-    except TypeError:
-        logging.error('User ID must be a string or integer.')
-        return None
-    except KeyError as ke:
-        logging.error(ke)
-        return None
+def get_top_players(players: Dict[str, List[float]], top_n: int = 3) -> Dict[str, float]:
+    """
+    Get the top N players based on their scores.
+
+    Args:
+        players (Dict[str, List[float]]): A dictionary with player names as keys and their scores as values.
+        top_n (int): The number of top players to return.
+
+    Returns:
+        Dict[str, float]: A dictionary of top players and their average scores.
+    """
+    averages = {player: calculate_average(scores) for player, scores in players.items()}
+    top_players = dict(sorted(averages.items(), key=lambda item: item[1], reverse=True)[:top_n])
+    return top_players
+
+
+def format_scoreboard(players: Dict[str, float]) -> str:
+    """
+    Format the scoreboard for display.
+
+    Args:
+        players (Dict[str, float]): A dictionary of player names and their scores.
+
+    Returns:
+        str: A formatted scoreboard.
+    """
+    return '\n'.join([f'{player}: {score:.2f}' for player, score in players.items()])
