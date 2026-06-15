@@ -1,45 +1,35 @@
+import time
 import random
-import logging
+import requests
 
-logger = logging.getLogger(__name__)
+def retry_on_failure(max_retries, wait_time):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except requests.exceptions.RequestException as e:
+                    print(f'Attempt {retries + 1} failed: {e}')
+                    retries += 1
+                    if retries < max_retries:
+                        sleep_time = wait_time + random.uniform(0, 1)
+                        print(f'Retrying in {sleep_time:.2f} seconds...')
+                        time.sleep(sleep_time)
+            raise Exception('Max retries exceeded')
+        return wrapper
+    return decorator
 
-class GameHandler:
-    def __init__(self):
-        self.players = []
-        self.scoreboard = {}
+@retry_on_failure(max_retries=3, wait_time=2)
+def fetch_data(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
 
-    def add_player(self, player_name):
-        if player_name not in self.players:
-            self.players.append(player_name)
-            self.scoreboard[player_name] = 0
-            logger.info(f'Added player: {player_name}')
-        else:
-            logger.warning(f'Player {player_name} already exists.')
-
-    def remove_player(self, player_name):
-        if player_name in self.players:
-            self.players.remove(player_name)
-            del self.scoreboard[player_name]
-            logger.info(f'Removed player: {player_name}')
-        else:
-            logger.warning(f'Player {player_name} not found.')
-
-    def update_score(self, player_name, points):
-        if player_name in self.scoreboard:
-            self.scoreboard[player_name] += points
-            logger.info(f'Updated score for {player_name}: {self.scoreboard[player_name]}')
-        else:
-            logger.warning(f'Player {player_name} not in scoreboard.')
-
-    def get_winner(self):
-        if not self.scoreboard:
-            logger.warning('No players in the game.')
-            return None
-        winner = max(self.scoreboard, key=self.scoreboard.get)
-        logger.info(f'Winner is: {winner}')
-        return winner
-
-    def reset_game(self):
-        self.players.clear()
-        self.scoreboard.clear()
-        logger.info('Game has been reset.')
+if __name__ == '__main__':
+    url = 'https://jsonplaceholder.typicode.com/posts/1'
+    try:
+        data = fetch_data(url)
+        print(data)
+    except Exception as ex:
+        print(f'Failed to fetch data: {ex}')
