@@ -1,29 +1,27 @@
-class GameError(Exception):
-    """Base class for all game-related exceptions."""
-    def __init__(self, message):
-        super().__init__(message)
+class GameException(Exception):
+    """Base class for game-specific exceptions."""
+    pass
+
+class InvalidInputError(GameException):
+    """Exception raised for invalid input errors."""
+    def __init__(self, message="Invalid input provided."):
         self.message = message
+        super().__init__(self.message)
 
-class PlayerNotFound(GameError):
-    """Exception raised when a player cannot be found."""
-    def __init__(self, player_id):
-        super().__init__(f'Player with ID {player_id} not found.')
-        self.player_id = player_id
+class ResourceNotFoundError(GameException):
+    """Exception raised when a resource is not found."""
+    def __init__(self, resource_name):
+        self.message = f'Resource {resource_name} not found.'
+        super().__init__(self.message)
 
-class GameNotFound(GameError):
-    """Exception raised when a game cannot be found."""
-    def __init__(self, game_id):
-        super().__init__(f'Game with ID {game_id} not found.')
-        self.game_id = game_id
+class GameOverError(GameException):
+    """Exception raised when a game is over."""
+    def __init__(self):
+        self.message = 'The game is over, no more moves allowed.'
+        super().__init__(self.message)
 
-class InvalidScoreError(GameError):
-    """Exception raised for invalid score submissions."""
-    def __init__(self, score):
-        super().__init__(f'Invalid score: {score}. Score must be non-negative.')
-        self.score = score
-
-class QuotaExceededError(GameError):
-    """Exception raised when player exceeds action quota."""
-    def __init__(self, action):
-        super().__init__(f'Action quota exceeded for {action}.')
-        self.action = action
+class NetworkError(GameException):
+    """Exception raised for network-related errors."""
+    def __init__(self, message="Network connection issue."):
+        self.message = message
+        super().__init__(self.message)
