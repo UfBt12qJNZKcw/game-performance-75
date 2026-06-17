@@ -1,39 +1,29 @@
 import json
 import os
 
-DEFAULT_CONFIG = {
-    'resolution': '1920x1080',
-    'volume': 75,
-    'fullscreen': True,
-    'controls': {
-        'move_up': 'W',
-        'move_down': 'S',
-        'move_left': 'A',
-        'move_right': 'D',
-        'shoot': 'SPACE'
-    }
-}
-
 class ConfigLoader:
-    def __init__(self, config_file='config.json'):
-        self.config_file = config_file
+    def __init__(self, default_config_path, user_config_path):
+        self.default_config_path = default_config_path
+        self.user_config_path = user_config_path
         self.config = self.load_config()
 
     def load_config(self):
-        if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as file:
-                user_config = json.load(file)
-                return self.override_defaults(user_config)
-        return DEFAULT_CONFIG
+        default_config = self.load_json(self.default_config_path)
+        user_config = self.load_json(self.user_config_path) if os.path.exists(self.user_config_path) else {}
+        return self.merge_configs(default_config, user_config)
 
-    def override_defaults(self, user_config):
-        combined_config = DEFAULT_CONFIG.copy()
-        combined_config.update(user_config)
-        return combined_config
+    def load_json(self, path):
+        with open(path, 'r') as f:
+            return json.load(f)
+
+    def merge_configs(self, default, user):
+        merged = default.copy()
+        merged.update(user)
+        return merged
 
     def get(self, key, default=None):
         return self.config.get(key, default)
 
-# Example usage:
-# config_loader = ConfigLoader()
-# print(config_loader.get('volume'))
+# Example of usage:
+# config_loader = ConfigLoader('default_config.json', 'user_config.json')
+# db_host = config_loader.get('db_host', 'localhost')
