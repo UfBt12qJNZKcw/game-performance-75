@@ -1,39 +1,31 @@
 import logging
-from functools import wraps
 
-class CustomFormatter(logging.Formatter):
-    COLORS = {
-        'DEBUG': '\033[0;37m',
-        'INFO': '\033[0;32m',
-        'WARNING': '\033[0;33m',
-        'ERROR': '\033[0;31m',
-        'CRITICAL': '\033[0;41m',
-    }
-    RESET = '\033[0m'
+class GameLogger:
+    def __init__(self, name):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.FileHandler(f'{name}.log')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-    def format(self, record):
-        log_color = self.COLORS.get(record.levelname, self.RESET)
-        record.msg = f'{log_color}{record.msg}{self.RESET}'
-        return super().format(record)
+    def debug(self, message):
+        self.logger.debug(message)
 
-def setup_logger(name):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    formatter = CustomFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    return logger
+    def info(self, message):
+        self.logger.info(message)
 
-def log_execution_time(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        logger.info(f'Executed {func.__name__} in {execution_time:.4f} seconds')
-        return result
-    return wrapper
+    def warning(self, message):
+        self.logger.warning(message)
 
-logger = setup_logger(__name__)
+    def error(self, message):
+        self.logger.error(message)
+
+    def critical(self, message):
+        self.logger.critical(message)
+
+if __name__ == '__main__':
+    game_logger = GameLogger('game_performance')
+    game_logger.info('Game started')
+    game_logger.warning('Low FPS detected')
+    game_logger.error('Game crashed unexpectedly')
