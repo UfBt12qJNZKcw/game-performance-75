@@ -1,27 +1,25 @@
-class GameException(Exception):
-    """Base class for game-specific exceptions."""
-    pass
-
-class InvalidInputError(GameException):
-    """Exception raised for invalid input errors."""
-    def __init__(self, message="Invalid input provided."):
+class GameError(Exception):
+    """Base class for game-related exceptions."""
+    def __init__(self, message):
+        super().__init__(message)
         self.message = message
-        super().__init__(self.message)
 
-class ResourceNotFoundError(GameException):
-    """Exception raised when a resource is not found."""
-    def __init__(self, resource_name):
-        self.message = f'Resource {resource_name} not found.'
-        super().__init__(self.message)
+class HighScoreError(GameError):
+    """Raised when there is an error with high score handling."""
+    def __init__(self, message="High score could not be processed."):
+        super().__init__(message)
 
-class GameOverError(GameException):
-    """Exception raised when a game is over."""
-    def __init__(self):
-        self.message = 'The game is over, no more moves allowed.'
-        super().__init__(self.message)
+class PlayerError(GameError):
+    """Raised when there is an issue with player actions."""
+    def __init__(self, message="Player action is invalid."):
+        super().__init__(message)
 
-class NetworkError(GameException):
-    """Exception raised for network-related errors."""
-    def __init__(self, message="Network connection issue."):
-        self.message = message
-        super().__init__(self.message)
+class LevelError(GameError):
+    """Raised when there is an error loading or processing game levels."""
+    def __init__(self, message="Level data is corrupted or missing."):
+        super().__init__(message)
+
+class GameLoadError(GameError):
+    """Raised when the game fails to load."""
+    def __init__(self, message="Game resources could not be loaded."):
+        super().__init__(message)
