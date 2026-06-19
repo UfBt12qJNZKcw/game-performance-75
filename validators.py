@@ -1,30 +1,24 @@
-import re
-
-def validate_player_name(name):
-    if not isinstance(name, str):
-        raise ValueError('Player name must be a string')
-    if len(name) < 3 or len(name) > 20:
-        raise ValueError('Player name must be between 3 and 20 characters')
-    if not re.match('^[a-zA-Z0-9_]*$', name):
-        raise ValueError('Player name can only contain letters, numbers, and underscores')
+def validate_input(user_input):
+    if not isinstance(user_input, str):
+        raise ValueError("Input must be a string")
+    if not user_input.strip():
+        raise ValueError("Input cannot be empty or whitespace")
+    if len(user_input) < 3:
+        raise ValueError("Input must be at least 3 characters long")
+    if len(user_input) > 50:
+        raise ValueError("Input must not exceed 50 characters")
     return True
 
+def main_processing_loop():
+    while True:
+        user_input = input("Enter command: ")
+        try:
+            validate_input(user_input)
+            print(f"Valid input received: {user_input}")
+            # Proceed with game logic here
+        except ValueError as e:
+            print(f"Input error: {e}")
+            continue
 
-def validate_score(score):
-    if not isinstance(score, (int, float)):
-        raise ValueError('Score must be an integer or float')
-    if score < 0:
-        raise ValueError('Score cannot be negative')
-    return True
-
-
-def validate_game_data(data):
-    if not isinstance(data, dict):
-        raise ValueError('Game data must be a dictionary')
-    required_keys = ['player_name', 'score']
-    for key in required_keys:
-        if key not in data:
-            raise ValueError(f'Missing required key: {key}')
-    validate_player_name(data['player_name'])
-    validate_score(data['score'])
-    return True
+if __name__ == "__main__":
+    main_processing_loop()
