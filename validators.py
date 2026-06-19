@@ -1,33 +1,30 @@
 import re
 
-class ValidationError(Exception):
-    pass
-
-def validate_username(username):
-    if not isinstance(username, str):
-        raise ValidationError("Username must be a string.")
-    if len(username) < 3 or len(username) > 20:
-        raise ValidationError("Username must be between 3 and 20 characters.")
-    if not re.match("^[a-zA-Z0-9_]*$, username):
-        raise ValidationError("Username can only contain alphanumeric characters and underscores.")
+def validate_player_name(name):
+    if not isinstance(name, str):
+        raise ValueError('Player name must be a string')
+    if len(name) < 3 or len(name) > 20:
+        raise ValueError('Player name must be between 3 and 20 characters')
+    if not re.match('^[a-zA-Z0-9_]*$', name):
+        raise ValueError('Player name can only contain letters, numbers, and underscores')
     return True
+
 
 def validate_score(score):
     if not isinstance(score, (int, float)):
-        raise ValidationError("Score must be a number.")
-    if score < 0 or score > 100:
-        raise ValidationError("Score must be between 0 and 100.")
+        raise ValueError('Score must be an integer or float')
+    if score < 0:
+        raise ValueError('Score cannot be negative')
     return True
+
 
 def validate_game_data(data):
     if not isinstance(data, dict):
-        raise ValidationError("Game data must be a dictionary.")
-    required_keys = ['username', 'score']
+        raise ValueError('Game data must be a dictionary')
+    required_keys = ['player_name', 'score']
     for key in required_keys:
         if key not in data:
-            raise ValidationError(f'Missing required key: {key}')
-        if key == 'username':
-            validate_username(data[key])
-        elif key == 'score':
-            validate_score(data[key])
+            raise ValueError(f'Missing required key: {key}')
+    validate_player_name(data['player_name'])
+    validate_score(data['score'])
     return True
