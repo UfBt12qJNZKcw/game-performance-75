@@ -1,24 +1,24 @@
 def validate_input(user_input):
+    allowed_inputs = {'move_up', 'move_down', 'move_left', 'move_right', 'attack', 'defend'}
     if not isinstance(user_input, str):
-        raise ValueError("Input must be a string")
-    if not user_input.strip():
-        raise ValueError("Input cannot be empty or whitespace")
-    if len(user_input) < 3:
-        raise ValueError("Input must be at least 3 characters long")
-    if len(user_input) > 50:
-        raise ValueError("Input must not exceed 50 characters")
+        raise ValueError('Input must be a string.')
+    if user_input not in allowed_inputs:
+        raise ValueError(f'Invalid input: {user_input}. Allowed inputs: {allowed_inputs}')
     return True
 
-def main_processing_loop():
+def main_game_loop():
     while True:
-        user_input = input("Enter command: ")
         try:
+            user_input = input('Enter your action: ')
+            # Validate the user input
             validate_input(user_input)
-            print(f"Valid input received: {user_input}")
-            # Proceed with game logic here
+            process_input(user_input)
         except ValueError as e:
-            print(f"Input error: {e}")
+            print(e)
             continue
 
-if __name__ == "__main__":
-    main_processing_loop()
+def process_input(user_input):
+    print(f'Processing input: {user_input}')
+
+if __name__ == '__main__':
+    main_game_loop()
