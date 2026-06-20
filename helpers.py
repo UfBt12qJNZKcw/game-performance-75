@@ -1,45 +1,43 @@
-from typing import List, Dict, Any
+import random
+import math
 
-
-def calculate_average(scores: List[float]) -> float:
+def generate_random_position(x_range, y_range):
     """
-    Calculate the average of a list of scores.
-
-    Args:
-        scores (List[float]): A list of numerical scores.
-
-    Returns:
-        float: The average of the provided scores.
+    Generate a random position.
+    Returns a tuple of (x, y).
     """
-    if not scores:
-        return 0.0
-    return sum(scores) / len(scores)
+    x = random.randint(0, x_range)
+    y = random.randint(0, y_range)
+    return (x, y)
 
 
-def get_top_players(players: Dict[str, List[float]], top_n: int = 3) -> Dict[str, float]:
+def distance(point1, point2):
     """
-    Get the top N players based on their scores.
-
-    Args:
-        players (Dict[str, List[float]]): A dictionary with player names as keys and their scores as values.
-        top_n (int): The number of top players to return.
-
-    Returns:
-        Dict[str, float]: A dictionary of top players and their average scores.
+    Calculate the Euclidean distance between two points.
+    point1 and point2 are tuples of (x, y).
     """
-    averages = {player: calculate_average(scores) for player, scores in players.items()}
-    top_players = dict(sorted(averages.items(), key=lambda item: item[1], reverse=True)[:top_n])
-    return top_players
+    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
-def format_scoreboard(players: Dict[str, float]) -> str:
+def clamp(value, min_value, max_value):
     """
-    Format the scoreboard for display.
-
-    Args:
-        players (Dict[str, float]): A dictionary of player names and their scores.
-
-    Returns:
-        str: A formatted scoreboard.
+    Clamp a value between min_value and max_value.
     """
-    return '\n'.join([f'{player}: {score:.2f}' for player, score in players.items()])
+    return max(min_value, min(value, max_value))
+
+
+def lerp(start, end, fraction):
+    """
+    Linearly interpolate between start and end by fraction.
+    """
+    return start + (end - start) * fraction
+
+
+def normalize(vector):
+    """
+    Normalize a vector (x, y).
+    """
+    length = math.sqrt(vector[0] ** 2 + vector[1] ** 2)
+    if length == 0:
+        return (0, 0)
+    return (vector[0] / length, vector[1] / length)
