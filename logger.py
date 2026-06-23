@@ -1,25 +1,32 @@
 import logging
-from logging.handlers import RotatingFileHandler
 
-LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-LOG_FILE = 'game_performance.log'
+class GameLogger:
+    def __init__(self, name='GameLogger'):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.FileHandler('game.log')
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-# Logger configuration function
-def setup_logger(name, level=logging.INFO):
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    def debug(self, msg):
+        self.logger.debug(msg)
 
-    handler = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=5)
-    formatter = logging.Formatter(LOG_FORMAT)
-    handler.setFormatter(formatter)
+    def info(self, msg):
+        self.logger.info(msg)
 
-    if not logger.hasHandlers():
-        logger.addHandler(handler)
-    return logger
+    def warning(self, msg):
+        self.logger.warning(msg)
 
-# Example usage
-if __name__ == '__main__':
-    game_logger = setup_logger('game_logger')
-    game_logger.info('Game started!')
-    game_logger.warning('Low memory warning!')
-    game_logger.error('Game crashed!')
+    def error(self, msg):
+        self.logger.error(msg)
+
+    def critical(self, msg):
+        self.logger.critical(msg)
+
+    def close(self):
+        for handler in self.logger.handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+
+logger = GameLogger()
