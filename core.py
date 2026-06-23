@@ -1,21 +1,29 @@
-import numpy as np
+import sys
+import json
 
-class GameData:
-    def __init__(self, frame_count):
-        self.frame_count = frame_count
-        self.data = np.zeros((frame_count, 3), dtype=np.float32)  # Store position, speed, and time
+def input_validation(user_input):
+    if not isinstance(user_input, str):
+        raise ValueError("Input must be a string")
+    if len(user_input) == 0:
+        raise ValueError("Input cannot be empty")
+    return user_input.strip()
 
-    def update_frame(self, frame_idx, position, speed):
-        if 0 <= frame_idx < self.frame_count:
-            self.data[frame_idx] = np.array([position, speed, frame_idx], dtype=np.float32)
+def main_loop():
+    while True:
+        try:
+            user_input = input("Enter command: ")
+            validated_input = input_validation(user_input)
+            print(f"You entered: {validated_input}")
+            if validated_input.lower() == 'exit':
+                print("Exiting game.")
+                break
+        except ValueError as e:
+            print(f"Error: {e}")
+        except KeyboardInterrupt:
+            print("Game interrupted. Exiting.")
+            break
+        except Exception as e:
+            print(f"Unexpected error: {e}")
 
-    def process_frames(self):
-        return np.mean(self.data, axis=0)
-
-# Simulate game performance tracking
 if __name__ == '__main__':
-    game_data = GameData(1000)
-    for i in range(1000):
-        game_data.update_frame(i, np.random.random(), np.random.random())
-    average_metrics = game_data.process_frames()
-    print(f'Average metrics: {average_metrics}')
+    main_loop()
