@@ -1,31 +1,21 @@
-import random
 import time
-from typing import List, Any
+import requests
 
-def shuffle_list(items: List[Any]) -> List[Any]:
-    shuffled = items[:]
-    random.shuffle(shuffled)
-    return shuffled
+class NetworkError(Exception):
+    pass
 
-
-def sleep_seconds(seconds: float) -> None:
-    time.sleep(seconds)
-
-
-def format_time(milliseconds: int) -> str:
-    seconds = milliseconds / 1000
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    return f'{int(hours):02}:{int(minutes):02}:{int(seconds):02}'
-
-
-def clamp(value: float, min_value: float, max_value: float) -> float:
-    return max(min(value, max_value), min_value)
-
-
-def average(numbers: List[float]) -> float:
-    return sum(numbers) / len(numbers) if numbers else 0.0
-
-
-def get_random_choice(choices: List[Any]) -> Any:
-    return random.choice(choices)
+def retry_request(url, retries=3, delay=2, backoff=2):
+    attempt = 0
+    while attempt < retries:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            if attempt == retries - 1:
+                raise NetworkError(f'Failed to fetch {url} after {retries} attempts') from e
+            wait_time = delay * (backoff ** attempt)
+            print(f'Attempt {attempt + 1} failed: {e}. Retrying in {wait_time} seconds...')
+            time.sleep(wait_time)
+            attempt += 1
+    return None
