@@ -1,7 +1,7 @@
 import logging
 
-class GameLogger:
-    def __init__(self, name='GameLogger'):
+class CustomLogger:
+    def __init__(self, name):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
         handler = logging.FileHandler('game.log')
@@ -9,24 +9,28 @@ class GameLogger:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    def debug(self, msg):
-        self.logger.debug(msg)
+    def log_info(self, message):
+        self.logger.info(message)
 
-    def info(self, msg):
-        self.logger.info(msg)
+    def log_warning(self, message):
+        self.logger.warning(message)
 
-    def warning(self, msg):
-        self.logger.warning(msg)
+    def log_error(self, message):
+        self.logger.error(message)
 
-    def error(self, msg):
-        self.logger.error(msg)
+    def log_debug(self, message):
+        self.logger.debug(message)
 
-    def critical(self, msg):
-        self.logger.critical(msg)
+    def log_exception(self, exception):
+        self.logger.exception(exception)
 
-    def close(self):
-        for handler in self.logger.handlers:
-            handler.close()
-            self.logger.removeHandler(handler)
-
-logger = GameLogger()
+if __name__ == '__main__':
+    logger = CustomLogger(__name__)
+    try:
+        # Example usage, replace this with actual loop
+        for i in range(5):
+            if i == 2:
+                raise ValueError('Intentional Error')
+            logger.log_info(f'Processing item {i}')
+    except Exception as e:
+        logger.log_exception(e)
