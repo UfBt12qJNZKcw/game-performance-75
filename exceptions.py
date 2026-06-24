@@ -1,36 +1,28 @@
 class GameError(Exception):
-    """Base class for all game errors."""
+    """Base class for exceptions in game operations."""
     pass
 
 class InvalidMoveError(GameError):
-    """Raised when a player makes an invalid move."""
-    def __init__(self, move, message="Invalid move attempted."):
-        self.move = move
+    """Exception raised for invalid moves in the game."""
+    def __init__(self, message="Invalid move attempted."):
         self.message = message
         super().__init__(self.message)
 
-    def __str__(self):
-        return f'{self.message} Move: {self.move}'
-
-class ScoreOutOfRangeError(GameError):
-    """Raised when the score is not within a valid range."""
-    def __init__(self, score, min_score=0, max_score=100, message="Score out of valid range."):
-        self.score = score
-        self.min_score = min_score
-        self.max_score = max_score
+class GameStateError(GameError):
+    """Exception raised when game state is inconsistent."""
+    def __init__(self, message="Game state is not valid."):
         self.message = message
         super().__init__(self.message)
 
-    def __str__(self):
-        return f'{self.message} Score: {self.score}, Expected range: [{self.min_score}, {self.max_score}]'
+class PlayerError(GameError):
+    """Exception raised for player-related errors."""
+    def __init__(self, player_id, message="Player error occurred."):
+        self.player_id = player_id
+        self.message = f"{message} (Player ID: {player_id})"
+        super().__init__(self.message)
 
-# Usage examples
-try:
-    raise InvalidMoveError('Z3')
-except InvalidMoveError as e:
-    print(e)
-
-try:
-    raise ScoreOutOfRangeError(150, 0, 100)
-except ScoreOutOfRangeError as e:
-    print(e)
+class NetworkError(GameError):
+    """Exception raised for network-related issues."""
+    def __init__(self, message="Network error occurred."):
+        self.message = message
+        super().__init__(self.message)
