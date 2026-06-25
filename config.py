@@ -1,26 +1,24 @@
 import json
 import os
 
-class ConfigLoader:
-    def __init__(self, default_config_file='default_config.json', user_config_file='user_config.json'):
-        self.default_config = self.load_config(default_config_file)
-        self.user_config = self.load_config(user_config_file)
-        self.config = self.merge_configs(self.default_config, self.user_config)
+def load_config(file_path='config.json', defaults=None):
+    if defaults is None:
+        defaults = {}
+    # Check if the config file exists
+    if not os.path.isfile(file_path):
+        return defaults
+    with open(file_path, 'r') as file:
+        try:
+            config = json.load(file)
+        except json.JSONDecodeError:
+            print('Invalid JSON in config file. Using defaults.')</code>
+            return defaults
+    # Merge defaults with configurations, allowing overrides
+    config = {**defaults, **config}
+    return config
 
-    def load_config(self, filename):
-        if not os.path.exists(filename):
-            return {}
-        with open(filename, 'r') as file:
-            return json.load(file)
-
-    def merge_configs(self, default, user):
-        merged = default.copy()
-        merged.update(user)
-        return merged
-
-    def get(self, key, default_value=None):
-        return self.config.get(key, default_value)
-
+# Usage Example:
 if __name__ == '__main__':
-    config_loader = ConfigLoader()
-    print(config_loader.config)  
+    default_config = {'volume': 70, 'resolution': '1920x1080'}
+    config = load_config('config.json', default_config)
+    print(config)
