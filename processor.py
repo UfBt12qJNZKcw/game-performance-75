@@ -1,35 +1,23 @@
 import random
-import sys
+import json
 
-class GameProcessingError(Exception):
-    pass
+def process_game_input(user_input):
+    valid_inputs = ['move', 'attack', 'defend', 'heal']
+    if user_input not in valid_inputs:
+        raise ValueError("Invalid input. Please choose from: move, attack, defend, heal.")
+    return f'Processing action: {user_input}'
 
-class GameProcessor:
-    def __init__(self, data):
-        if not isinstance(data, list) or not data:
-            raise GameProcessingError('Data must be a non-empty list.')
-        self.data = data
-
-    def process_data(self):
+def main_processing_loop():
+    while True:
+        user_input = input("Enter your action (move, attack, defend, heal) or 'quit' to exit: ").strip().lower()
+        if user_input == 'quit':
+            print('Exiting game. Goodbye!')
+            break
         try:
-            processed_data = [self._perform_calculation(d) for d in self.data]
-            return processed_data
-        except Exception as e:
-            print(f'Error during processing: {e}')
-            sys.exit(1)
-
-    def _perform_calculation(self, value):
-        if not isinstance(value, (int, float)):
-            raise GameProcessingError(f'Invalid data type for value: {value}')
-        # Simulate potential division by zero
-        divisor = random.choice([0, 1, 2, 3])
-        return value / divisor if divisor != 0 else value * 2
+            result = process_game_input(user_input)
+            print(result)
+        except ValueError as e:
+            print(e)
 
 if __name__ == '__main__':
-    try:
-        processor = GameProcessor([5, 10, 'a', 20])  # Intentionally including an invalid type
-        results = processor.process_data()
-        print(results)
-    except GameProcessingError as e:
-        print(f'Game processing failed: {e}')
-        sys.exit(1)
+    main_processing_loop()
