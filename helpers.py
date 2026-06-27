@@ -1,43 +1,24 @@
 import random
-import math
+import time
 
-def generate_random_position(x_range, y_range):
-    """
-    Generate a random position.
-    Returns a tuple of (x, y).
-    """
-    x = random.randint(0, x_range)
-    y = random.randint(0, y_range)
-    return (x, y)
+def generate_random_id(length=8):
+    characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    return ''.join(random.choice(characters) for _ in range(length))
 
+def wait(seconds):
+    print(f'Waiting for {seconds} seconds...')
+    time.sleep(seconds)
 
-def distance(point1, point2):
-    """
-    Calculate the Euclidean distance between two points.
-    point1 and point2 are tuples of (x, y).
-    """
-    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+class PerformanceMonitor:
+    def __init__(self):
+        self.start_time = time.time()
 
+    def reset(self):
+        self.start_time = time.time()
 
-def clamp(value, min_value, max_value):
-    """
-    Clamp a value between min_value and max_value.
-    """
-    return max(min_value, min(value, max_value))
+    def elapsed_time(self):
+        return time.time() - self.start_time
 
-
-def lerp(start, end, fraction):
-    """
-    Linearly interpolate between start and end by fraction.
-    """
-    return start + (end - start) * fraction
-
-
-def normalize(vector):
-    """
-    Normalize a vector (x, y).
-    """
-    length = math.sqrt(vector[0] ** 2 + vector[1] ** 2)
-    if length == 0:
-        return (0, 0)
-    return (vector[0] / length, vector[1] / length)
+    def log_performance(self, message):
+        elapsed = self.elapsed_time()
+        print(f'[{elapsed:.2f}s] {message}')
