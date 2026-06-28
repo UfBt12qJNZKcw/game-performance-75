@@ -1,29 +1,51 @@
+import random
 import sys
-import json
 
-def input_validation(user_input):
-    if not isinstance(user_input, str):
-        raise ValueError("Input must be a string")
-    if len(user_input) == 0:
-        raise ValueError("Input cannot be empty")
-    return user_input.strip()
+class GameError(Exception):
+    pass
 
-def main_loop():
-    while True:
+class Game:
+    def __init__(self):
+        self.score = 0
+        self.level = 1
+        self.is_running = True
+
+    def start(self):
         try:
-            user_input = input("Enter command: ")
-            validated_input = input_validation(user_input)
-            print(f"You entered: {validated_input}")
-            if validated_input.lower() == 'exit':
-                print("Exiting game.")
-                break
-        except ValueError as e:
-            print(f"Error: {e}")
-        except KeyboardInterrupt:
-            print("Game interrupted. Exiting.")
-            break
+            self.play()
+        except GameError as e:
+            self.handle_error(e)
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            self.handle_unexpected_error(e)
+
+    def play(self):
+        while self.is_running:
+            self.level_up()
+            action = random.choice(['win', 'lose', 'error', 'continue'])
+            if action == 'win':
+                self.score += 10
+                print(f'Level {self.level}: You win! Score: {self.score}')
+            elif action == 'lose':
+                self.score -= 10
+                print(f'Level {self.level}: You lose! Score: {self.score}')
+            elif action == 'error':
+                raise GameError('A game-specific error occurred!')
+            else:
+                print(f'Level {self.level}: No action taken.')
+
+    def level_up(self):
+        if self.score < 0:
+            raise GameError('Score cannot be negative.')
+        self.level += 1
+
+    def handle_error(self, error):
+        print(f'Handling game error: {error}')
+        self.is_running = False
+
+    def handle_unexpected_error(self, error):
+        print(f'Unexpected error occurred: {error}', file=sys.stderr)
+        self.is_running = False
 
 if __name__ == '__main__':
-    main_loop()
+    game = Game()
+    game.start()  
