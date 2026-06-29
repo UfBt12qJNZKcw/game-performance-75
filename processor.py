@@ -1,28 +1,31 @@
-import numpy as np
+import sys
 
 class GameProcessor:
-    def __init__(self, game_data):
-        self.game_data = game_data
-        self.processed_data = None
+    def __init__(self):
+        self.score = 0
 
-    def optimize_data(self):
-        data_array = np.array(self.game_data)
-        self.processed_data = (data_array - np.mean(data_array)) / np.std(data_array)
-        return self.processed_data
+    def validate_input(self, user_input):
+        if not user_input.isdigit():
+            raise ValueError('Input must be a number')
+        if int(user_input) < 0:
+            raise ValueError('Input must be a non-negative number')
 
-    def compute_performance_metrics(self):
-        if self.processed_data is None:
-            raise ValueError('Data not processed. Call optimize_data first.')
-        metrics = {
-            'mean_performance': np.mean(self.processed_data),
-            'std_performance': np.std(self.processed_data),
-            'max_performance': np.max(self.processed_data),
-            'min_performance': np.min(self.processed_data),
-        }
-        return metrics
+    def update_score(self, user_input):
+        self.validate_input(user_input)
+        self.score += int(user_input)
+        print(f'Score updated to: {self.score}')
+
+    def main_loop(self):
+        while True:
+            user_input = input('Enter score to add (or type exit): ')
+            if user_input.lower() == 'exit':
+                print('Exiting game processor.')
+                break
+            try:
+                self.update_score(user_input)
+            except ValueError as e:
+                print(e)
 
 if __name__ == '__main__':
-    sample_data = [100, 200, 150, 300, 250]
-    processor = GameProcessor(sample_data)
-    processor.optimize_data()
-    print(processor.compute_performance_metrics())
+    game_processor = GameProcessor()
+    game_processor.main_loop()
