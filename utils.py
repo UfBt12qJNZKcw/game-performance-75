@@ -1,24 +1,36 @@
-import time
-import random
+import json
 
-def retry_with_backoff(max_retries=5, backoff_factor=1):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            retries = 0
-            while retries < max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    delay = backoff_factor * (2 ** retries) + random.uniform(0, 1)
-                    print(f"Error: {e}. Retrying in {delay:.2f} seconds...")
-                    time.sleep(delay)
-                    retries += 1
-            raise Exception(f'Exceeded maximum retries ({max_retries}) for function {func.__name__}')
-        return wrapper
-    return decorator
+class GamingDataError(Exception):
+    pass
 
-@retry_with_backoff()
-def fetch_data_from_server():
-    if random.random() < 0.7:
-        raise ConnectionError("Connection failed")
-    return "Data received successfully!"
+
+def load_game_data(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            return data
+    except FileNotFoundError:
+        raise GamingDataError('File not found')
+    except json.JSONDecodeError:
+        raise GamingDataError('Invalid JSON format')
+
+
+def save_game_data(file_path, data):
+    try:
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+    except Exception as e:
+        raise GamingDataError(f'Error saving data: {str(e)}')
+
+
+def update_game_data(file_path, new_data):
+    try:
+        data = load_game_data(file_path)
+        data.update(new_data)
+        save_game_data(file_path, data)
+    except GamingDataError as e:
+        print(e)
+
+
+def get_high_scores(data, top_n=5):
+    return sorted(data, key=lambda x: x['score'], reverse=True)[:top_n}
