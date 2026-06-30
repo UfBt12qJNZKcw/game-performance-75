@@ -1,31 +1,26 @@
-import sys
+import time
+import random
 
 class GameProcessor:
-    def __init__(self):
-        self.score = 0
+    def __init__(self, num_players):
+        self.num_players = num_players
+        self.scores = [0] * num_players
 
-    def validate_input(self, user_input):
-        if not user_input.isdigit():
-            raise ValueError('Input must be a number')
-        if int(user_input) < 0:
-            raise ValueError('Input must be a non-negative number')
+    def simulate_game(self):
+        start_time = time.time()
+        for _ in range(10):  # Simulate 10 rounds
+            self.play_round()
+        end_time = time.time()
+        print(f"Game processed in {end_time - start_time:.4f} seconds")
 
-    def update_score(self, user_input):
-        self.validate_input(user_input)
-        self.score += int(user_input)
-        print(f'Score updated to: {self.score}')
+    def play_round(self):
+        for i in range(self.num_players):
+            self.scores[i] += random.randint(1, 10)
+        self.optimize_scores()
 
-    def main_loop(self):
-        while True:
-            user_input = input('Enter score to add (or type exit): ')
-            if user_input.lower() == 'exit':
-                print('Exiting game processor.')
-                break
-            try:
-                self.update_score(user_input)
-            except ValueError as e:
-                print(e)
+    def optimize_scores(self):
+        self.scores = sorted(self.scores, reverse=True)[:5]  # Keep top 5 scores
 
-if __name__ == '__main__':
-    game_processor = GameProcessor()
-    game_processor.main_loop()
+if __name__ == "__main__":
+    processor = GameProcessor(num_players=20)
+    processor.simulate_game()
