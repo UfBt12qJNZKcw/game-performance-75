@@ -1,26 +1,28 @@
-import time
 import random
+import time
 
-class GameProcessor:
-    def __init__(self, num_players):
-        self.num_players = num_players
-        self.scores = [0] * num_players
+def process_game_input(player_input):
+    # This function processes player input
+    valid_inputs = ['move', 'jump', 'attack', 'defend']
+    if player_input not in valid_inputs:
+        raise ValueError(f'Invalid input: {player_input}')
+    print(f'Processing input: {player_input}')
+    time.sleep(0.5)  # Simulate processing delay
+    return f'Input {player_input} processed successfully!'
 
-    def simulate_game(self):
-        start_time = time.time()
-        for _ in range(10):  # Simulate 10 rounds
-            self.play_round()
-        end_time = time.time()
-        print(f"Game processed in {end_time - start_time:.4f} seconds")
+def main_loop():
+    while True:
+        try:
+            player_input = input('Enter your action (move, jump, attack, defend): ').strip().lower()
+            result = process_game_input(player_input)
+            print(result)
+        except ValueError as ve:
+            print(ve)
+        except KeyboardInterrupt:
+            print('\nExiting game. Goodbye!')
+            break
+        except Exception as e:
+            print(f'An error occurred: {e}')
 
-    def play_round(self):
-        for i in range(self.num_players):
-            self.scores[i] += random.randint(1, 10)
-        self.optimize_scores()
-
-    def optimize_scores(self):
-        self.scores = sorted(self.scores, reverse=True)[:5]  # Keep top 5 scores
-
-if __name__ == "__main__":
-    processor = GameProcessor(num_players=20)
-    processor.simulate_game()
+if __name__ == '__main__':
+    main_loop()
