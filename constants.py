@@ -1,28 +1,39 @@
-from typing import Final
+import math
 
 # Game constants
-SCREEN_WIDTH: Final[int] = 800
-SCREEN_HEIGHT: Final[int] = 600
-FPS: Final[int] = 60
+FPS = 60
+PLAYER_SPEED = 5.0
+GRAVITY = 9.81
+JUMP_HEIGHT = 1.5
 
-# Colors in RGB
-WHITE: Final[tuple[int, int, int]] = (255, 255, 255)
-BLACK: Final[tuple[int, int, int]] = (0, 0, 0)
-RED: Final[tuple[int, int, int]] = (255, 0, 0)
-GREEN: Final[tuple[int, int, int]] = (0, 255, 0)
-BLUE: Final[tuple[int, int, int]] = (0, 0, 255)
+# Color constants
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 
-# Game states
-enum GameState: int:
-    MAIN_MENU = 0
-    PLAYING = 1
-    GAME_OVER = 2
+# Screen dimensions
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
 
-# Movement speed constants
-PLAYER_SPEED: Final[float] = 5.0
-ENEMY_SPEED: Final[float] = 3.0
+# Level constants
+MAX_LEVELS = 10
+BOSS_HEALTH = 1000
 
-# Difficulty multipliers
-EASY_DIFFICULTY: Final[float] = 0.5
-NORMAL_DIFFICULTY: Final[float] = 1.0
-HARD_DIFFICULTY: Final[float] = 1.5
+# Utility functions
+
+def calculate_distance(point1, point2):
+    return math.sqrt((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2)
+
+
+def clamp(value, min_value, max_value):
+    return max(min_value, min(value, max_value))
+
+
+def radians_to_degrees(radians):
+    return radians * (180.0 / math.pi)
+
+
+def degrees_to_radians(degrees):
+    return degrees * (math.pi / 180.0)
