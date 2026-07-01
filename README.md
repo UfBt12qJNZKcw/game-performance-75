@@ -1,16 +1,17 @@
 # Game Performance 75
 
-Game Performance 75 is a Python-based tool designed to enhance the performance of your gaming applications by providing real-time analytics and optimization suggestions. With a focus on simplicity and efficiency, this project helps developers identify bottlenecks and improve gameplay experience seamlessly.
+Game Performance 75 is a Python-based tool designed to analyze and optimize gaming performance metrics in real-time. This project aims to provide gamers and developers with actionable insights that help improve the overall gaming experience on various platforms.
 
 ## Features
-- **Real-Time Performance Monitoring**: Track frame rates, memory usage, and CPU utilization to identify performance dips during gameplay.
-- **Automatic Optimization Suggestions**: Receive actionable recommendations based on your game's performance metrics to optimize settings and code.
-- **Cross-Platform Compatibility**: Works across Windows, macOS, and Linux systems, making it versatile for diverse gaming environments.
-- **User-Friendly Dashboard**: Intuitive interface displays key metrics at a glance, allowing for quick performance assessments and decisions.
+
+- **Real-Time Performance Monitoring**: Track FPS, CPU usage, and memory allocation in an intuitive dashboard.
+- **Customizable Settings**: Adjust monitoring parameters to suit different game profiles and hardware configurations.
+- **Export Data**: Save performance statistics and logs for further analysis or comparison.
+- **User-Friendly Interface**: Simplified command-line interface, making it accessible for both novice and experienced users alike.
 
 ## Installation
 
-To get started with Game Performance 75, you'll need to clone the repository and install the required dependencies. Run the following commands in your terminal:
+To get started, ensure that you have Python 3.7 or higher installed. Clone the repository and install the required dependencies using pip:
 
 ```bash
 git clone https://github.com/Developer/game-performance-75.git
@@ -18,19 +19,28 @@ cd game-performance-75
 pip install -r requirements.txt
 ```
 
-## Basic Usage
+## Basic Usage Example
 
-Once installed, you can run the performance monitor on your game by executing the following command:
+After installation, you can launch the performance monitor by running:
 
 ```bash
-python monitor.py --game-path "/path/to/your/game"
+python monitor.py
 ```
 
-This command will launch the performance monitoring tool, showcasing real-time metrics and providing optimization tips based on the current game performance.
+This command initiates the real-time performance dashboard. To customize the settings, you can edit the `config.ini` file located in the root directory. 
+
+Use the following commands to export your performance data:
+
+```bash
+python export.py --format csv
+```
+
+This will generate a CSV file containing your performance metrics to review or share.
 
 ## License
 
-![License](https://img.shields.io/badge/license-MIT-brightgreen)  
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+![License](https://img.shields.io/badge/license-MIT-brightgreen)
 
-Explore this tool to improve your gaming applications, and let’s create exceptional gaming experiences together!
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
+
+Game Performance 75 is a powerful tool for anyone looking to gain a competitive edge in gaming. Whether you're a casual player or a developer seeking to optimize performance, this tool is designed to meet your needs.
