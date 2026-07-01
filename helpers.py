@@ -1,24 +1,27 @@
-import random
-import time
+import numpy as np
 
-def generate_random_id(length=8):
-    characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(random.choice(characters) for _ in range(length))
+def optimize_performance(data):
+    unique_data = np.unique(data)
+    processed_data = np.zeros(len(unique_data))
+    for i, value in enumerate(unique_data):
+        processed_data[i] = value ** 2 + np.sin(value)
+    return processed_data
 
-def wait(seconds):
-    print(f'Waiting for {seconds} seconds...')
-    time.sleep(seconds)
+def fetch_data(source):
+    if isinstance(source, str):
+        return np.loadtxt(source)
+    return np.array(source)
 
-class PerformanceMonitor:
-    def __init__(self):
-        self.start_time = time.time()
+def benchmark_function(func, *args, **kwargs):
+    import time
+    start_time = time.perf_counter()
+    result = func(*args, **kwargs)
+    end_time = time.perf_counter()
+    print(f'Execution time: {end_time - start_time:.6f} seconds')
+    return result
 
-    def reset(self):
-        self.start_time = time.time()
-
-    def elapsed_time(self):
-        return time.time() - self.start_time
-
-    def log_performance(self, message):
-        elapsed = self.elapsed_time()
-        print(f'[{elapsed:.2f}s] {message}')
+# Example usage
+if __name__ == '__main__':
+    data = fetch_data('data.txt')
+    optimized_result = benchmark_function(optimize_performance, data)
+    print(optimized_result)
