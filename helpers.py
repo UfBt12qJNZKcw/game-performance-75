@@ -1,27 +1,26 @@
-import numpy as np
+import random
+import math
 
-def optimize_performance(data):
-    unique_data = np.unique(data)
-    processed_data = np.zeros(len(unique_data))
-    for i, value in enumerate(unique_data):
-        processed_data[i] = value ** 2 + np.sin(value)
-    return processed_data
+def roll_dice(sides=6, rolls=1):
+    return [random.randint(1, sides) for _ in range(rolls)]
 
-def fetch_data(source):
-    if isinstance(source, str):
-        return np.loadtxt(source)
-    return np.array(source)
+def calculate_distance(point1, point2):
+    return math.sqrt((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2)
 
-def benchmark_function(func, *args, **kwargs):
-    import time
-    start_time = time.perf_counter()
-    result = func(*args, **kwargs)
-    end_time = time.perf_counter()
-    print(f'Execution time: {end_time - start_time:.6f} seconds')
-    return result
+def generate_random_position(width, height):
+    return (random.randint(0, width), random.randint(0, height))
 
-# Example usage
-if __name__ == '__main__':
-    data = fetch_data('data.txt')
-    optimized_result = benchmark_function(optimize_performance, data)
-    print(optimized_result)
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
+
+class GameObject:
+    def __init__(self, name, position):
+        self.name = name
+        self.position = position
+
+    def move(self, x_offset, y_offset):
+        self.position = (clamp(self.position[0] + x_offset, 0, 1920),
+                         clamp(self.position[1] + y_offset, 0, 1080))
+
+    def distance_to(self, other):
+        return calculate_distance(self.position, other.position)
