@@ -1,28 +1,28 @@
-import random
-import time
+import numpy as np
 
-def process_game_input(player_input):
-    # This function processes player input
-    valid_inputs = ['move', 'jump', 'attack', 'defend']
-    if player_input not in valid_inputs:
-        raise ValueError(f'Invalid input: {player_input}')
-    print(f'Processing input: {player_input}')
-    time.sleep(0.5)  # Simulate processing delay
-    return f'Input {player_input} processed successfully!'
+class GameProcessor:
+    def __init__(self, game_data):
+        self.game_data = game_data
+        self.processed_data = []
 
-def main_loop():
-    while True:
-        try:
-            player_input = input('Enter your action (move, jump, attack, defend): ').strip().lower()
-            result = process_game_input(player_input)
-            print(result)
-        except ValueError as ve:
-            print(ve)
-        except KeyboardInterrupt:
-            print('\nExiting game. Goodbye!')
-            break
-        except Exception as e:
-            print(f'An error occurred: {e}')
+    def normalize_data(self):
+        max_val = np.max(self.game_data)
+        min_val = np.min(self.game_data)
+        range_val = max_val - min_val
+        self.processed_data = [(x - min_val) / range_val for x in self.game_data]
 
+    def analyze_performance(self):
+        mean_value = np.mean(self.processed_data)
+        return {'mean_performance': mean_value, 'max_performance': np.max(self.processed_data)}
+
+    def display_summary(self):
+        self.normalize_data()
+        performance = self.analyze_performance()
+        print(f"Mean Performance: {performance['mean_performance']:.2f}")
+        print(f"Max Performance: {performance['max_performance']:.2f}")
+
+# Example usage:
 if __name__ == '__main__':
-    main_loop()
+    raw_game_data = [100, 200, 150, 300, 250]
+    processor = GameProcessor(raw_game_data)
+    processor.display_summary()
