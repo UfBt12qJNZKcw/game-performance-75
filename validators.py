@@ -1,23 +1,21 @@
 def validate_input(user_input):
     if not isinstance(user_input, str):
-        raise ValueError('Input must be a string.')
+        raise ValueError('Input must be a string')
     if not user_input:
-        raise ValueError('Input cannot be empty.')
-    if any(char.isdigit() for char in user_input):
-        raise ValueError('Input must not contain numbers.')
+        raise ValueError('Input cannot be empty')
+    if len(user_input) > 100:
+        raise ValueError('Input exceeds maximum length of 100 characters')
     return True
 
-def validate_choice(choice, valid_choices):
-    if choice not in valid_choices:
-        raise ValueError(f'Invalid choice: {choice}. Valid choices are: {valid_choices}')
-    return True
+def main_process_loop():
+    while True:
+        user_input = input('Enter your command: ')
+        try:
+            validate_input(user_input)
+            # Process input here
+            print(f'Processing: {user_input}')
+        except ValueError as e:
+            print(f'Input error: {e}')
 
 if __name__ == '__main__':
-    valid_choices = ['rock', 'paper', 'scissors']
-    try:
-        user_input = input('Enter your choice: ')
-        validate_input(user_input)
-        validate_choice(user_input, valid_choices)
-        print('Input is valid, processing...')
-    except ValueError as e:
-        print(f'Error: {e}')
+    main_process_loop()
