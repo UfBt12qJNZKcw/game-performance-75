@@ -1,21 +1,26 @@
-def validate_input(user_input):
-    if not isinstance(user_input, str):
-        raise ValueError('Input must be a string')
-    if not user_input:
-        raise ValueError('Input cannot be empty')
-    if len(user_input) > 100:
-        raise ValueError('Input exceeds maximum length of 100 characters')
-    return True
+import re
 
-def main_process_loop():
-    while True:
-        user_input = input('Enter your command: ')
-        try:
-            validate_input(user_input)
-            # Process input here
-            print(f'Processing: {user_input}')
-        except ValueError as e:
-            print(f'Input error: {e}')
+def is_valid_username(username):
+    return bool(re.match(r'^[a-zA-Z0-9_]{3,16}$', username))
 
-if __name__ == '__main__':
-    main_process_loop()
+
+def is_valid_email(email):
+    email_regex = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return bool(re.match(email_regex, email))
+
+
+def is_valid_password(password):
+    if len(password) < 8:
+        return False
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    return has_upper and has_lower and has_digit
+
+
+def is_valid_score(score):
+    return isinstance(score, (int, float)) and 0 <= score <= 100
+
+
+def is_valid_game_id(game_id):
+    return isinstance(game_id, str) and len(game_id) == 10 and game_id.isalnum()
