@@ -1,35 +1,39 @@
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-class GameLogger:
-    """Custom logger for game events."""
-
+class Logger:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+        fh = logging.FileHandler(f'{name}.log')
+        fh.setLevel(logging.DEBUG)
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.WARNING)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        self.logger.addHandler(fh)
+        self.logger.addHandler(ch)
 
-    def log_event(self, event_type, message):
-        if event_type.lower() not in ['info', 'debug', 'error']:
-            raise ValueError('Invalid event type')
-        if not isinstance(message, str) or not message:
-            raise ValueError('Message must be a non-empty string')
-        
-        log_method = getattr(self.logger, event_type.lower())
-        log_method(message)
+    def debug(self, message):
+        self.logger.debug(message)
 
-    def log_error(self, message):
-        self.log_event('error', message)
+    def info(self, message):
+        self.logger.info(message)
 
-    def log_info(self, message):
-        self.log_event('info', message)
+    def warning(self, message):
+        self.logger.warning(message)
 
-    def log_debug(self, message):
-        self.log_event('debug', message)
+    def error(self, message):
+        self.logger.error(message)
 
-# Example usage
+    def critical(self, message):
+        self.logger.critical(message)
+
+# Example usage of Logger
 if __name__ == '__main__':
-    game_logger = GameLogger('GamePerformance')
-    game_logger.log_info('Game started')
-    game_logger.log_debug('Loading assets')
-    game_logger.log_error('Failed to load asset')
+    logger = Logger('game_performance')
+    logger.info('Game started')
+    logger.debug('This is a debug message')
+    logger.warning('This is a warning')
+    logger.error('An error occurred')
+    logger.critical('Critical issue found')
