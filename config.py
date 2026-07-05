@@ -1,32 +1,22 @@
-import json
+import logging
 import os
+from logging.handlers import RotatingFileHandler
 
-class ConfigLoader:
-    def __init__(self, default_config_path, user_config_path):
-        self.default_config = self.load_config(default_config_path)
-        self.user_config = self.load_user_config(user_config_path)
-        self.final_config = self.merge_configs()
+def setup_logger(log_filename, max_bytes=5*1024*1024, backup_count=3):
+    logger = logging.getLogger('game_performance_logger')
+    logger.setLevel(logging.DEBUG)
 
-    def load_config(self, config_path):
-        with open(config_path, 'r') as file:
-            return json.load(file)
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
 
-    def load_user_config(self, config_path):
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as file:
-                return json.load(file)
-        return {}
+    log_file_path = os.path.join('logs', log_filename)
+    handler = RotatingFileHandler(log_file_path, maxBytes=max_bytes, backupCount=backup_count)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
-    def merge_configs(self):
-        # Create a new dict based on defaults
-        config = self.default_config.copy()
-        # Update with user-specific settings
-        config.update(self.user_config)
-        return config
+    return logger
 
-    def get(self, key, default=None):
-        return self.final_config.get(key, default)
-
-# Usage example:
-# config = ConfigLoader('default_config.json', 'user_config.json')
-# print(config.get('setting_key', 'default_value'))
+if __name__ == '__main__':
+    logger = setup_logger('game_performance.log')
+    logger.info('Logger setup complete.')
