@@ -1,22 +1,27 @@
-import logging
 import os
-from logging.handlers import RotatingFileHandler
 
-def setup_logger(log_filename, max_bytes=5*1024*1024, backup_count=3):
-    logger = logging.getLogger('game_performance_logger')
-    logger.setLevel(logging.DEBUG)
+class Config:
+    def __init__(self):
+        self.settings = self.load_settings()
 
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    def load_settings(self):
+        config_file = os.path.join(os.getcwd(), 'config.json')
+        if not os.path.exists(config_file):
+            raise FileNotFoundError('Configuration file not found.')
+        import json
+        with open(config_file, 'r') as file:
+            return json.load(file)
 
-    log_file_path = os.path.join('logs', log_filename)
-    handler = RotatingFileHandler(log_file_path, maxBytes=max_bytes, backupCount=backup_count)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    def get_setting(self, key):
+        return self.settings.get(key, None)
 
-    return logger
+    def update_setting(self, key, value):
+        self.settings[key] = value
+        self.save_settings()
 
-if __name__ == '__main__':
-    logger = setup_logger('game_performance.log')
-    logger.info('Logger setup complete.')
+    def save_settings(self):
+        config_file = os.path.join(os.getcwd(), 'config.json')
+        with open(config_file, 'w') as file:
+            json.dump(self.settings, file, indent=4)
+
+config = Config()
