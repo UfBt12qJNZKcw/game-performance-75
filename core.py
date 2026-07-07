@@ -1,37 +1,31 @@
 import random
-import logging
+import sys
 
 class Game:
-    def __init__(self, name, players):
-        self.name = name
-        self.players = players
-        self.score = {player: 0 for player in players}
+    def __init__(self):
+        self.score = 0
         self.max_score = 100
-        logging.basicConfig(level=logging.INFO)
+        self.min_score = 0
 
-    def play_round(self):
+    def process_input(self, user_input):
         try:
-            if len(self.players) < 2:
-                raise ValueError('At least two players are required')
-            round_scores = {player: random.randint(1, 10) for player in self.players}
-            logging.info(f'Round scores: {round_scores}')
-            self.update_score(round_scores)
-        except ValueError as ve:
-            logging.error(f'ValueError: {ve}')
-        except Exception as e:
-            logging.error(f'An unexpected error occurred: {e}')
+            value = int(user_input)
+            if self.min_score <= value <= self.max_score:
+                self.score = value
+                print(f'Score updated to: {self.score}')
+            else:
+                raise ValueError('Input must be between 0 and 100.')
+        except ValueError as e:
+            print(f'Invalid input: {e}')
 
-    def update_score(self, round_scores):
-        for player, score in round_scores.items():
-            self.score[player] += score
-            if self.score[player] >= self.max_score:
-                self.end_game(player)
-
-    def end_game(self, winner):
-        logging.info(f'{winner} wins the game!')
-        self.score = {player: 0 for player in self.players}
+    def main_loop(self):
+        while True:
+            user_input = input('Enter your score (0-100) or type exit to quit: ')
+            if user_input.lower() == 'exit':
+                print('Exiting game...')
+                break
+            self.process_input(user_input)
 
 if __name__ == '__main__':
-    game = Game('My Game', ['Alice', 'Bob'])
-    for _ in range(15):
-        game.play_round()
+    game = Game()
+    game.main_loop()
