@@ -1,37 +1,23 @@
 import time
 import random
+import requests
 
-class NetworkError(Exception):
-    pass
-
-def network_operation():
-    if random.choice([True, False]):
-        raise NetworkError("Simulated network error")
-    return "Success"
-
-
-def retry_decorator(retries=3, delay=2):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except NetworkError as e:
-                    print(f'Attempt {attempt + 1} failed: {e}')
-                    time.sleep(delay)
-                    if attempt == retries - 1:
-                        print('All retries failed')
-                        raise
-        return wrapper
-    return decorator
-
-@retry_decorator(retries=5, delay=1)
-def perform_network_request():
-    return network_operation()
-
-if __name__ == '__main__':
-    try:
-        result = perform_network_request()
-        print(result)
-    except NetworkError:
-        print('Failed to complete network request')
+def retry_request(url, max_retries=5, backoff_factor=0.3, timeout=10):
+    retries = 0
+    while retries < max_retries:
+        try:
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.ConnectionError as ce:
+            print(f"Connection error: {ce}")
+        except requests.Timeout as te:
+            print(f"Timeout error: {te}")
+        except requests.HTTPError as he:
+            print(f"HTTP error: {he}")
+            return None
+        retries += 1
+        wait_time = backoff_factor * (2 ** (retries - 1)) + random.uniform(0, 1)
+        print(f"Retrying in {wait_time:.2f} seconds...")
+        time.sleep(wait_time)
+    return None
