@@ -1,28 +1,39 @@
-import numpy as np
+import json
+import random
 
 class GameProcessor:
-    def __init__(self, game_data):
-        self.game_data = game_data
-        self.processed_data = []
+    def __init__(self):
+        self.players = []
 
-    def normalize_data(self):
-        max_val = np.max(self.game_data)
-        min_val = np.min(self.game_data)
-        range_val = max_val - min_val
-        self.processed_data = [(x - min_val) / range_val for x in self.game_data]
+    def add_player(self, name):
+        if not isinstance(name, str) or not name:
+            raise ValueError('Invalid player name')
+        self.players.append(name)
 
-    def analyze_performance(self):
-        mean_value = np.mean(self.processed_data)
-        return {'mean_performance': mean_value, 'max_performance': np.max(self.processed_data)}
+    def simulate_game(self):
+        if len(self.players) < 2:
+            raise ValueError('Not enough players to start a game')
+        winner = random.choice(self.players)
+        return {'winner': winner, 'player_count': len(self.players)}
 
-    def display_summary(self):
-        self.normalize_data()
-        performance = self.analyze_performance()
-        print(f"Mean Performance: {performance['mean_performance']:.2f}")
-        print(f"Max Performance: {performance['max_performance']:.2f}")
+    def reset_game(self):
+        self.players.clear()
+        return 'Game has been reset'
 
-# Example usage:
+    def get_player_list(self):
+        if not self.players:
+            return 'No players available'
+        return self.players
+
 if __name__ == '__main__':
-    raw_game_data = [100, 200, 150, 300, 250]
-    processor = GameProcessor(raw_game_data)
-    processor.display_summary()
+    processor = GameProcessor()
+    try:
+        processor.add_player('Alice')
+        processor.add_player('Bob')
+        print(processor.simulate_game())
+    except ValueError as e:
+        print(f'Error: {e}')
+    
+    print(processor.get_player_list())
+    
+    processor.reset_game()
