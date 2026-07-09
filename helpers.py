@@ -1,26 +1,36 @@
 import random
-import math
+import time
 
-def roll_dice(sides=6, rolls=1):
-    return [random.randint(1, sides) for _ in range(rolls)]
+def get_random_element(sequence):
+    """Returns a random element from a non-empty sequence."""
+    if not sequence:
+        raise ValueError('Cannot get random element from an empty sequence')
+    return random.choice(sequence)
 
-def calculate_distance(point1, point2):
-    return math.sqrt((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2)
 
-def generate_random_position(width, height):
-    return (random.randint(0, width), random.randint(0, height))
+def measure_execution_time(func):
+    """Decorator to measure execution time of a function."""
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f'Execution time: {end_time - start_time:.4f} seconds')
+        return result
+    return wrapper
+
 
 def clamp(value, min_value, max_value):
+    """Clamps a value between a minimum and maximum value."""
     return max(min(value, max_value), min_value)
 
-class GameObject:
-    def __init__(self, name, position):
-        self.name = name
-        self.position = position
 
-    def move(self, x_offset, y_offset):
-        self.position = (clamp(self.position[0] + x_offset, 0, 1920),
-                         clamp(self.position[1] + y_offset, 0, 1080))
+def interpolate(start, end, fraction):
+    """Linearly interpolates between start and end based on fraction."""
+    return start + (end - start) * fraction
 
-    def distance_to(self, other):
-        return calculate_distance(self.position, other.position)
+
+def shuffle_list(original_list):
+    """Returns a shuffled copy of the original list."""
+    shuffled = original_list[:]
+    random.shuffle(shuffled)
+    return shuffled
