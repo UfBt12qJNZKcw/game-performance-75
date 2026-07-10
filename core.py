@@ -1,31 +1,30 @@
+from typing import List, Dict, Any
 import random
-import sys
 
-class Game:
-    def __init__(self):
-        self.score = 0
-        self.max_score = 100
-        self.min_score = 0
+class GameCore:
+    def __init__(self, max_players: int) -> None:
+        """Initializes the game core with a maximum number of players."""
+        self.max_players: int = max_players
+        self.players: List[str] = []
 
-    def process_input(self, user_input):
-        try:
-            value = int(user_input)
-            if self.min_score <= value <= self.max_score:
-                self.score = value
-                print(f'Score updated to: {self.score}')
-            else:
-                raise ValueError('Input must be between 0 and 100.')
-        except ValueError as e:
-            print(f'Invalid input: {e}')
+    def add_player(self, player_name: str) -> bool:
+        """Adds a player to the game if not full. Returns success status."""
+        if len(self.players) < self.max_players:
+            self.players.append(player_name)
+            return True
+        return False
 
-    def main_loop(self):
-        while True:
-            user_input = input('Enter your score (0-100) or type exit to quit: ')
-            if user_input.lower() == 'exit':
-                print('Exiting game...')
-                break
-            self.process_input(user_input)
+    def start_game(self) -> List[str]:
+        """Randomly shuffles players and starts the game."""
+        if len(self.players) < 2:
+            raise ValueError("Not enough players to start the game.")
+        random.shuffle(self.players)
+        return self.players
 
-if __name__ == '__main__':
-    game = Game()
-    game.main_loop()
+    def get_player_count(self) -> int:
+        """Returns the current number of players."""
+        return len(self.players)
+
+    def get_game_state(self) -> Dict[str, Any]:
+        """Returns the current game state as a dictionary."""
+        return {'players': self.players, 'max_players': self.max_players}
