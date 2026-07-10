@@ -1,25 +1,32 @@
+import sys
 import json
-from collections import defaultdict
 
-def process_game_data(game_data):
-    stats = defaultdict(lambda: {'plays': 0, 'wins': 0, 'losses': 0})
-    for entry in game_data:
-        player_id = entry['player_id']
-        result = entry['result']
-        stats[player_id]['plays'] += 1
-        if result == 'win':
-            stats[player_id]['wins'] += 1
-        elif result == 'loss':
-            stats[player_id]['losses'] += 1
-    return json.dumps(stats, indent=4)
+class InputError(Exception):
+    pass
+
+class GameProcessor:
+    def __init__(self):
+        self.valid_inputs = ['start', 'stop', 'pause', 'resume']
+    
+    def validate_input(self, user_input):
+        if user_input not in self.valid_inputs:
+            raise InputError(f"Invalid command: {user_input}")
+
+    def process_command(self, command):
+        self.validate_input(command)
+        print(f"Processing command: {command}")
+
+    def main_loop(self):
+        while True:
+            user_input = input("Enter command: ").strip().lower()
+            try:
+                self.process_command(user_input)
+            except InputError as e:
+                print(e)
+            except KeyboardInterrupt:
+                print("Exiting program...")
+                sys.exit(0)
 
 if __name__ == '__main__':
-    sample_data = [
-        {'player_id': '123', 'result': 'win'},
-        {'player_id': '123', 'result': 'loss'},
-        {'player_id': '456', 'result': 'win'},
-        {'player_id': '123', 'result': 'win'},
-        {'player_id': '456', 'result': 'loss'}
-    ]
-    result = process_game_data(sample_data)
-    print(result)
+    processor = GameProcessor()
+    processor.main_loop()
