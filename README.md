@@ -1,17 +1,16 @@
 # Game Performance 75
 
-Game Performance 75 is a Python-based tool designed to analyze and optimize gaming performance metrics in real-time. This project aims to provide gamers and developers with actionable insights that help improve the overall gaming experience on various platforms.
+Game Performance 75 is a comprehensive Python tool designed to analyze and optimize gaming performance metrics in real time. By utilizing advanced algorithms, it provides actionable insights that can enhance the gaming experience for developers and players alike.
 
 ## Features
-
-- **Real-Time Performance Monitoring**: Track FPS, CPU usage, and memory allocation in an intuitive dashboard.
-- **Customizable Settings**: Adjust monitoring parameters to suit different game profiles and hardware configurations.
-- **Export Data**: Save performance statistics and logs for further analysis or comparison.
-- **User-Friendly Interface**: Simplified command-line interface, making it accessible for both novice and experienced users alike.
+- **Real-Time Performance Monitoring:** Track CPU, GPU, and memory usage with live updates to diagnose bottlenecks instantly.
+- **Customizable Metrics Dashboard:** Easily configure and visualize key performance indicators tailored to specific game requirements.
+- **Automated Performance Reports:** Generate detailed reports that summarize performance data and suggest optimization strategies.
+- **Compatibility with Popular Game Engines:** Seamlessly integrates with Unity and Unreal Engine, making it versatile for various game projects.
 
 ## Installation
 
-To get started, ensure that you have Python 3.7 or higher installed. Clone the repository and install the required dependencies using pip:
+To get started with Game Performance 75, clone the repository and install the required dependencies:
 
 ```bash
 git clone https://github.com/Developer/game-performance-75.git
@@ -19,28 +18,34 @@ cd game-performance-75
 pip install -r requirements.txt
 ```
 
-## Basic Usage Example
+## Basic Usage
 
-After installation, you can launch the performance monitor by running:
+Once installed, you can start analyzing your game by importing the module in your Python script:
 
-```bash
-python monitor.py
+```python
+from game_performance import PerformanceMonitor
+
+# Initialize the Performance Monitor
+monitor = PerformanceMonitor()
+
+# Start monitoring
+monitor.start()
+
+# Example function to simulate game loop
+def game_loop():
+    while True:
+        # Your game logic here
+        pass
+
+game_loop()
+
+# Stop monitoring and print the report
+monitor.stop()
+monitor.generate_report()
 ```
 
-This command initiates the real-time performance dashboard. To customize the settings, you can edit the `config.ini` file located in the root directory. 
+Feel free to modify the `game_loop` function with your actual game logic to see real-time performance metrics in action!
 
-Use the following commands to export your performance data:
+![MIT License](https://img.shields.io/badge/license-MIT-green.svg)   
 
-```bash
-python export.py --format csv
-```
-
-This will generate a CSV file containing your performance metrics to review or share.
-
-## License
-
-![License](https://img.shields.io/badge/license-MIT-brightgreen)
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
-
-Game Performance 75 is a powerful tool for anyone looking to gain a competitive edge in gaming. Whether you're a casual player or a developer seeking to optimize performance, this tool is designed to meet your needs.
+With Game Performance 75, you can ensure your game runs smoothly and efficiently, providing an optimized experience for your players!
