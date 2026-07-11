@@ -1,37 +1,34 @@
-from typing import List, Dict, Any
+import time
+import random
+from functools import wraps
 
 
-def calculate_average_score(scores: List[int]) -> float:
-    """
-    Calculate the average score from a list of scores.
-
-    :param scores: A list of integer scores.
-    :return: The average score as a float.
-    """
-    if not scores:
-        return 0.0
-    return sum(scores) / len(scores)
-
-
-def filter_high_scores(scores: List[int], threshold: int) -> List[int]:
-    """
-    Filter the scores to return only those above a certain threshold.
-
-    :param scores: A list of integer scores.
-    :param threshold: An integer threshold.
-    :return: A list of scores above the threshold.
-    """
-    return [score for score in scores if score > threshold]
+def retry(max_retries=5, delay=2):
+    def decorator(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_retries:
+                try:
+                    return function(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts == max_retries:
+                        raise
+                    print(f'Attempt {attempts} failed: {e}, retrying in {delay}s...')
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+        return wrapper
+    return decorator
 
 
-def format_game_data(data: Dict[str, Any]) -> str:
-    """
-    Format game data for display purposes.
+@retry(max_retries=3, delay=1)
+def fetch_data_from_network():
+    if random.choice([True, False]):
+        raise ConnectionError('Network error occurred!')
+    return 'Data fetched successfully!'
 
-    :param data: A dictionary containing game data like title, genre, and rating.
-    :return: A formatted string of the game data.
-    """
-    title = data.get('title', 'Unknown Game')
-    genre = data.get('genre', 'Unknown Genre')
-    rating = data.get('rating', 'N/A')
-    return f'{title} | Genre: {genre} | Rating: {rating}'
+# Example Usage:
+if __name__ == '__main__':
+    result = fetch_data_from_network()
+    print(result)
