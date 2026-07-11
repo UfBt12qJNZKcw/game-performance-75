@@ -1,24 +1,25 @@
 import json
 import os
 
-DEFAULT_CONFIG = {
-    'volume': 50,
-    'resolution': '1920x1080',
-    'fullscreen': True,
-    'language': 'en'
-}
+class ConfigLoader:
+    def __init__(self, default_config_path):
+        self.default_config_path = default_config_path
+        self.config = self.load_defaults()
 
-def load_config(file_path):
-    if not os.path.exists(file_path):
-        return DEFAULT_CONFIG
-    with open(file_path, 'r') as config_file:
-        try:
-            user_config = json.load(config_file)
-        except json.JSONDecodeError:
-            print('Error reading the config file. Using defaults.')
-            return DEFAULT_CONFIG
-    return {**DEFAULT_CONFIG, **user_config}
+    def load_defaults(self):
+        if not os.path.exists(self.default_config_path):
+            raise FileNotFoundError(f"Configuration file not found: {self.default_config_path}")
+        with open(self.default_config_path, 'r') as file:
+            return json.load(file)
 
-# Example usage if needed:
-# config = load_config('config.json')
-# print(config)
+    def get(self, key, fallback=None):
+        return self.config.get(key, fallback)
+
+    def update(self, new_config):
+        self.config.update(new_config)
+
+if __name__ == '__main__':
+    loader = ConfigLoader('default_config.json')
+    print(loader.get('game_resolution', '1920x1080'))
+    loader.update({'game_resolution': '2560x1440'})
+    print(loader.get('game_resolution'))
