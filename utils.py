@@ -1,34 +1,30 @@
-import time
-import random
-from functools import wraps
+import numpy as np
+
+def optimize_performance(data):
+    unique_data = np.unique(data)
+    processed = np.zeros(len(unique_data))
+    for i, val in enumerate(unique_data):
+        processed[i] = heavy_computation(val)
+    return processed
 
 
-def retry(max_retries=5, delay=2):
-    def decorator(function):
-        @wraps(function)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            while attempts < max_retries:
-                try:
-                    return function(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts == max_retries:
-                        raise
-                    print(f'Attempt {attempts} failed: {e}, retrying in {delay}s...')
-                    time.sleep(delay)
-                    delay *= 2  # Exponential backoff
-        return wrapper
-    return decorator
+def heavy_computation(value):
+    result = 0
+    for i in range(1, 10001):
+        result += (value * i) / (i + 1)
+    return result
 
 
-@retry(max_retries=3, delay=1)
-def fetch_data_from_network():
-    if random.choice([True, False]):
-        raise ConnectionError('Network error occurred!')
-    return 'Data fetched successfully!'
+def batch_process(data_batch):
+    results = []
+    for data in data_batch:
+        result = optimize_performance(data)
+        results.append(result)
+    return results
 
-# Example Usage:
-if __name__ == '__main__':
-    result = fetch_data_from_network()
-    print(result)
+
+def concurrent_process(data_batch):
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(optimize_performance, data_batch))
+    return results
