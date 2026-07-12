@@ -1,32 +1,24 @@
 import re
 
-def validate_player_name(name):
-    if not isinstance(name, str):
-        return False
-    return bool(re.match('^[A-Za-z0-9_]{3,16}$', name))
+def validate_username(username):
+    return bool(re.match('^[a-zA-Z0-9_]{3,15}$', username))
 
-def validate_score(score):
-    return isinstance(score, int) and score >= 0
 
 def validate_email(email):
-    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(email_regex, email))
+    regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(regex, email))
 
-def validate_game_data(data):
-    if not isinstance(data, dict):
-        return False
-    required_keys = ['player_name', 'score', 'email']
-    for key in required_keys:
-        if key not in data:
-            return False
-    return (validate_player_name(data['player_name']) and
-            validate_score(data['score']) and
-            validate_email(data['email']))
 
-if __name__ == '__main__':
-    test_data = {
-        'player_name': 'Gamer123',
-        'score': 100,
-        'email': 'gamer@example.com'
-    }
-    print(validate_game_data(test_data))  # Should return True
+def validate_password(password):
+    return (len(password) >= 8
+            and any(c.isdigit() for c in password)
+            and any(c.isupper() for c in password)
+            and any(c.islower() for c in password))
+
+
+def validate_game_id(game_id):
+    return isinstance(game_id, int) and game_id > 0
+
+
+def validate_score(score):
+    return isinstance(score, (int, float)) and score >= 0
