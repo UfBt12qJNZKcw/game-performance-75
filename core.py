@@ -1,30 +1,32 @@
-from typing import List, Dict, Any
+import time
 import random
 
-class GameCore:
-    def __init__(self, max_players: int) -> None:
-        """Initializes the game core with a maximum number of players."""
-        self.max_players: int = max_players
-        self.players: List[str] = []
+def optimized_game_loop(max_iterations):
+    frame_time = 1.0 / 60.0  # Target frame time for 60 FPS
+    start_time = time.time()
+    accumulated_time = 0.0
 
-    def add_player(self, player_name: str) -> bool:
-        """Adds a player to the game if not full. Returns success status."""
-        if len(self.players) < self.max_players:
-            self.players.append(player_name)
-            return True
-        return False
+    for iteration in range(max_iterations):
+        current_time = time.time()
+        delta_time = current_time - start_time
+        accumulated_time += delta_time
+        start_time = current_time
 
-    def start_game(self) -> List[str]:
-        """Randomly shuffles players and starts the game."""
-        if len(self.players) < 2:
-            raise ValueError("Not enough players to start the game.")
-        random.shuffle(self.players)
-        return self.players
+        if accumulated_time >= frame_time:
+            update_game_state(delta_time)
+            render_frame()
+            accumulated_time -= frame_time
 
-    def get_player_count(self) -> int:
-        """Returns the current number of players."""
-        return len(self.players)
+        time.sleep(max(0, frame_time - (time.time() - start_time)))
 
-    def get_game_state(self) -> Dict[str, Any]:
-        """Returns the current game state as a dictionary."""
-        return {'players': self.players, 'max_players': self.max_players}
+
+def update_game_state(delta_time):
+    print(f'Updating game state with delta_time: {delta_time}')
+
+
+def render_frame():
+    print('Rendering frame...')
+
+
+if __name__ == '__main__':
+    optimized_game_loop(max_iterations=1000)
