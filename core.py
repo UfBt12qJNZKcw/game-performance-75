@@ -1,32 +1,36 @@
 import time
 import random
 
-def optimized_game_loop(max_iterations):
-    frame_time = 1.0 / 60.0  # Target frame time for 60 FPS
-    start_time = time.time()
-    accumulated_time = 0.0
+class Game:
+    def __init__(self):
+        self.players = []
+        self.scoreboard = {}
 
-    for iteration in range(max_iterations):
-        current_time = time.time()
-        delta_time = current_time - start_time
-        accumulated_time += delta_time
-        start_time = current_time
+    def add_player(self, player):
+        self.players.append(player)
+        self.scoreboard[player] = 0
 
-        if accumulated_time >= frame_time:
-            update_game_state(delta_time)
-            render_frame()
-            accumulated_time -= frame_time
+    def play_round(self):
+        round_scores = {player: random.randint(1, 100) for player in self.players}
+        self.update_scores(round_scores)
 
-        time.sleep(max(0, frame_time - (time.time() - start_time)))
+    def update_scores(self, round_scores):
+        for player, score in round_scores.items():
+            self.scoreboard[player] += score
+            print(f'{player} scored {score}. Total: {self.scoreboard[player]}')
 
+    def get_winner(self):
+        winner = max(self.scoreboard, key=self.scoreboard.get)
+        return winner, self.scoreboard[winner]
 
-def update_game_state(delta_time):
-    print(f'Updating game state with delta_time: {delta_time}')
-
-
-def render_frame():
-    print('Rendering frame...')
-
+    def start_game(self, rounds):
+        for _ in range(rounds):
+            self.play_round()
+        winner, score = self.get_winner()
+        print(f'Winner is {winner} with score {score}')
 
 if __name__ == '__main__':
-    optimized_game_loop(max_iterations=1000)
+    game = Game()
+    game.add_player('Alice')
+    game.add_player('Bob')
+    game.start_game(5)
