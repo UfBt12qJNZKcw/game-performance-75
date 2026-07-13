@@ -3,23 +3,28 @@ import os
 
 class ConfigLoader:
     def __init__(self, default_config_path):
-        self.default_config_path = default_config_path
-        self.config = self.load_defaults()
+        self.default_config = self.load_default_config(default_config_path)
+        self.user_config = {}
 
-    def load_defaults(self):
-        if not os.path.exists(self.default_config_path):
-            raise FileNotFoundError(f"Configuration file not found: {self.default_config_path}")
-        with open(self.default_config_path, 'r') as file:
+    def load_default_config(self, path):
+        with open(path, 'r') as file:
             return json.load(file)
 
-    def get(self, key, fallback=None):
-        return self.config.get(key, fallback)
+    def load_user_config(self, user_config_path):
+        if os.path.exists(user_config_path):
+            with open(user_config_path, 'r') as file:
+                self.user_config = json.load(file)
+        else:
+            self.user_config = {}
 
-    def update(self, new_config):
-        self.config.update(new_config)
+    def get_config(self):
+        config = self.default_config.copy()
+        config.update(self.user_config)
+        return config
 
+# Usage example
 if __name__ == '__main__':
     loader = ConfigLoader('default_config.json')
-    print(loader.get('game_resolution', '1920x1080'))
-    loader.update({'game_resolution': '2560x1440'})
-    print(loader.get('game_resolution'))
+    loader.load_user_config('user_config.json')
+    final_config = loader.get_config()
+    print(final_config)
