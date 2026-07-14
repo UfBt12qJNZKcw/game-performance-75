@@ -1,24 +1,33 @@
 import time
+import random
+from functools import wraps
 
-def time_it(func):
-    def wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        print(f'Function {func.__name__} took {end_time - start_time:.6f} seconds')
-        return result
-    return wrapper
+def retry_operation(max_retries=3, delay=1, backoff=2):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 0
+            while attempt < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(f"Attempt {attempt + 1} failed: {e}")
+                    attempt += 1
+                    time.sleep(delay)
+                    delay *= backoff
+            raise Exception(f"All {max_retries} attempts failed")
+        return wrapper
+    return decorator
 
-@time_it
-def compute_heavy_logic(data):
-    total = sum(i * i for i in data)
-    return total
-
-@time_it
-def quick_operation(data):
-    return [i + 1 for i in data]
+@retry_operation(max_retries=5, delay=2)
+def network_operation():
+    if random.random() < 0.7:
+        raise Exception("Network error occurred")
+    return "Network request successful" 
 
 if __name__ == '__main__':
-    sample_data = range(1000000)
-    compute_heavy_logic(sample_data)
-    quick_operation(sample_data)
+    try:
+        result = network_operation()
+        print(result)
+    except Exception as e:
+        print(e)
