@@ -1,36 +1,30 @@
 import time
 import random
 
-class Game:
-    def __init__(self):
-        self.players = []
-        self.scoreboard = {}
+def optimize_game_loop(num_iterations):
+    start_time = time.time()
+    rendered_frames = []
 
-    def add_player(self, player):
-        self.players.append(player)
-        self.scoreboard[player] = 0
+    for i in range(num_iterations):
+        frame = render_frame(i)
+        rendered_frames.append(frame)
+        if i % 10 == 0:
+            cache_frame(frame)
 
-    def play_round(self):
-        round_scores = {player: random.randint(1, 100) for player in self.players}
-        self.update_scores(round_scores)
+    execution_time = time.time() - start_time
+    print(f"Optimized loop completed in {execution_time:.2f} seconds")
+    return rendered_frames
 
-    def update_scores(self, round_scores):
-        for player, score in round_scores.items():
-            self.scoreboard[player] += score
-            print(f'{player} scored {score}. Total: {self.scoreboard[player]}')
 
-    def get_winner(self):
-        winner = max(self.scoreboard, key=self.scoreboard.get)
-        return winner, self.scoreboard[winner]
+def render_frame(frame_number):
+    # Simulate varying rendering times
+    time.sleep(random.uniform(0.01, 0.1))
+    return f"Frame {frame_number} rendered"
 
-    def start_game(self, rounds):
-        for _ in range(rounds):
-            self.play_round()
-        winner, score = self.get_winner()
-        print(f'Winner is {winner} with score {score}')
+
+def cache_frame(frame):
+    # Mock caching mechanism
+    print(f"Caching {frame}")
 
 if __name__ == '__main__':
-    game = Game()
-    game.add_player('Alice')
-    game.add_player('Bob')
-    game.start_game(5)
+    optimize_game_loop(100)
