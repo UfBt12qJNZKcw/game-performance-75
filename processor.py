@@ -1,32 +1,31 @@
-import sys
-import json
-
-class InputError(Exception):
-    pass
+import time
 
 class GameProcessor:
     def __init__(self):
-        self.valid_inputs = ['start', 'stop', 'pause', 'resume']
-    
-    def validate_input(self, user_input):
-        if user_input not in self.valid_inputs:
-            raise InputError(f"Invalid command: {user_input}")
+        self.frames = []
+        self.start_time = time.time()
 
-    def process_command(self, command):
-        self.validate_input(command)
-        print(f"Processing command: {command}")
+    def add_frame(self, frame):
+        self.frames.append(frame)
 
-    def main_loop(self):
-        while True:
-            user_input = input("Enter command: ").strip().lower()
-            try:
-                self.process_command(user_input)
-            except InputError as e:
-                print(e)
-            except KeyboardInterrupt:
-                print("Exiting program...")
-                sys.exit(0)
+    def calculate_fps(self):
+        if len(self.frames) < 2:
+            return 0
+        elapsed_time = time.time() - self.start_time
+        return len(self.frames) / elapsed_time
 
+    def reset(self):
+        self.frames.clear()
+        self.start_time = time.time()
+
+    def display_fps(self):
+        fps = self.calculate_fps()
+        print(f"Current FPS: {fps:.2f}")
+
+# Example usage:
 if __name__ == '__main__':
     processor = GameProcessor()
-    processor.main_loop()
+    for _ in range(100):
+        processor.add_frame(_)  # Simulate adding frames
+        time.sleep(0.1)  # Simulate frame processing time
+    processor.display_fps()
