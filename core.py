@@ -1,30 +1,28 @@
 import time
-import random
 
-def optimize_game_loop(num_iterations):
+def optimize_performance(data):
     start_time = time.time()
-    rendered_frames = []
+    optimized_data = set(data)  # Removing duplicates for better performance
+    processed_data = []
 
-    for i in range(num_iterations):
-        frame = render_frame(i)
-        rendered_frames.append(frame)
-        if i % 10 == 0:
-            cache_frame(frame)
+    for item in optimized_data:
+        processed_item = complex_computation(item)
+        processed_data.append(processed_item)
 
-    execution_time = time.time() - start_time
-    print(f"Optimized loop completed in {execution_time:.2f} seconds")
-    return rendered_frames
+    print(f"Processing completed in {time.time() - start_time:.4f} seconds")
+    return processed_data
 
 
-def render_frame(frame_number):
-    # Simulate varying rendering times
-    time.sleep(random.uniform(0.01, 0.1))
-    return f"Frame {frame_number} rendered"
+def complex_computation(item):
+    return item ** 2 + 10 * item + 1  # Example computation simplification
 
 
-def cache_frame(frame):
-    # Mock caching mechanism
-    print(f"Caching {frame}")
+def run_game_loop(data):
+    while True:
+        optimized_result = optimize_performance(data)
+        # Further game logic and rendering would occur here
+        break  # Prevent infinite looping during optimization testing
 
 if __name__ == '__main__':
-    optimize_game_loop(100)
+    sample_data = list(range(1000))  # Example data
+    run_game_loop(sample_data)
