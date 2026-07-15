@@ -1,32 +1,35 @@
 import json
-import os
+import random
+import time
 
-def load_game_data(file_path):
-    try:
+class GameDataUtil:
+    @staticmethod
+    def load_game_data(file_path):
         with open(file_path, 'r') as file:
-            data = json.load(file)
-            return data
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-        return {}
-    except json.JSONDecodeError:
-        print(f"Error decoding JSON from file: {file_path}")
-        return {}
+            return json.load(file)
 
+    @staticmethod
+    def save_game_data(file_path, data):
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
 
-def save_game_data(file_path, data):
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'w') as file:
-        json.dump(data, file, indent=4)
+    @staticmethod
+    def generate_random_score(min_score=0, max_score=100):
+        return random.randint(min_score, max_score)
 
+    @staticmethod
+    def time_stamp():
+        return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
 
-def update_game_data(file_path, new_data):
-    data = load_game_data(file_path)
-    data.update(new_data)
-    save_game_data(file_path, data)
+    @staticmethod
+    def format_game_event(event_name, player, score):
+        return f'[{GameDataUtil.time_stamp()}] {player} scored {score} in {event_name}'
 
-
-def display_game_data(file_path):
-    data = load_game_data(file_path)
-    print(json.dumps(data, indent=4))
-
+if __name__ == '__main__':
+    # Example usage of the utility functions.
+    scores = []
+    for _ in range(5):
+        scores.append(GameDataUtil.generate_random_score())
+    print(scores)
+    print(GameDataUtil.format_game_event('Score Challenge', 'Player1', scores[0]))
+    GameDataUtil.save_game_data('game_data.json', {'scores': scores})
