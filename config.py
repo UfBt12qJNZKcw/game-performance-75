@@ -3,28 +3,25 @@ import os
 
 class ConfigLoader:
     def __init__(self, default_config_path):
-        self.default_config = self.load_default_config(default_config_path)
-        self.user_config = {}
+        self.default_config_path = default_config_path
+        self.config = self.load_defaults()
 
-    def load_default_config(self, path):
-        with open(path, 'r') as file:
-            return json.load(file)
+    def load_defaults(self):
+        if not os.path.exists(self.default_config_path):
+            raise FileNotFoundError(f"Default config not found at {self.default_config_path}")
+        with open(self.default_config_path) as config_file:
+            return json.load(config_file)
 
-    def load_user_config(self, user_config_path):
-        if os.path.exists(user_config_path):
-            with open(user_config_path, 'r') as file:
-                self.user_config = json.load(file)
-        else:
-            self.user_config = {}
+    def update_config(self, custom_config_path):
+        if os.path.exists(custom_config_path):
+            with open(custom_config_path) as custom_file:
+                custom_config = json.load(custom_file)
+            self.config.update(custom_config)
 
     def get_config(self):
-        config = self.default_config.copy()
-        config.update(self.user_config)
-        return config
+        return self.config
 
-# Usage example
 if __name__ == '__main__':
     loader = ConfigLoader('default_config.json')
-    loader.load_user_config('user_config.json')
-    final_config = loader.get_config()
-    print(final_config)
+    loader.update_config('user_config.json')
+    print(loader.get_config())
