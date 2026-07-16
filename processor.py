@@ -1,31 +1,37 @@
-import time
+from typing import List, Dict, Any
 
-class GameProcessor:
-    def __init__(self):
-        self.frames = []
-        self.start_time = time.time()
 
-    def add_frame(self, frame):
-        self.frames.append(frame)
+def process_game_data(game_data: List[Dict[str, Any]]) -> Dict[str, float]:
+    """Process game performance data.
 
-    def calculate_fps(self):
-        if len(self.frames) < 2:
-            return 0
-        elapsed_time = time.time() - self.start_time
-        return len(self.frames) / elapsed_time
+    Args:
+        game_data (List[Dict[str, Any]]): List of game performance metrics.
 
-    def reset(self):
-        self.frames.clear()
-        self.start_time = time.time()
+    Returns:
+        Dict[str, float]: Average metrics including FPS and latency.
+    """
+    total_fps = 0
+    total_latency = 0.0
+    count = len(game_data)
 
-    def display_fps(self):
-        fps = self.calculate_fps()
-        print(f"Current FPS: {fps:.2f}")
+    for metric in game_data:
+        total_fps += metric.get('fps', 0)
+        total_latency += metric.get('latency', 0.0)
 
-# Example usage:
-if __name__ == '__main__':
-    processor = GameProcessor()
-    for _ in range(100):
-        processor.add_frame(_)  # Simulate adding frames
-        time.sleep(0.1)  # Simulate frame processing time
-    processor.display_fps()
+    avg_fps = total_fps / count if count > 0 else 0
+    avg_latency = total_latency / count if count > 0 else 0.0
+
+    return {'average_fps': avg_fps, 'average_latency': avg_latency}
+
+
+def filter_top_performers(game_data: List[Dict[str, Any]], threshold: float) -> List[Dict[str, Any]]:
+    """Filter games that exceed a specified FPS threshold.
+
+    Args:
+        game_data (List[Dict[str, Any]]): List of game performance metrics.
+        threshold (float): Minimum FPS requirement to be a top performer.
+
+    Returns:
+        List[Dict[str, Any]]: Filtered list of top performing games.
+    """
+    return [game for game in game_data if game.get('fps', 0) > threshold]
