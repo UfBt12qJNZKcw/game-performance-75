@@ -1,39 +1,36 @@
-import random
+class GameError(Exception):
+    pass
 
 class GameHandler:
-    def __init__(self):
-        self.valid_input_range = (1, 100)
+    def __init__(self, game_data):
+        self.game_data = game_data
 
-    def get_user_input(self):
-        while True:
-            try:
-                user_input = int(input("Enter a number between 1 and 100: "))
-                if user_input < self.valid_input_range[0] or user_input > self.valid_input_range[1]:
-                    raise ValueError('Input out of range')
-                return user_input
-            except ValueError as e:
-                print(f'Invalid input: {e}. Please try again.')
+    def validate_data(self):
+        if not isinstance(self.game_data, dict):
+            raise GameError('Game data must be a dictionary.')
+        if 'score' not in self.game_data:
+            raise GameError('Game data must contain a score.')
+        if not isinstance(self.game_data['score'], (int, float)):
+            raise GameError('Score must be a number.')
+        if self.game_data['score'] < 0:
+            raise GameError('Score cannot be negative.')
 
-    def process_input(self, user_input):
-        # Simple game logic determining if guess is too high, too low, or correct
-        target_number = random.randint(self.valid_input_range[0], self.valid_input_range[1])
-        print(f'Target number is: {target_number}')  # For testing purposes
+    def handle_game(self):
+        try:
+            self.validate_data()
+            return self.process_game()
+        except GameError as e:
+            return {'error': str(e)}
 
-        if user_input < target_number:
-            return 'Too low!'
-        elif user_input > target_number:
-            return 'Too high!'
-        else:
-            return 'Correct!'
+    def process_game(self):
+        # Placeholder for game processing logic
+        return {'status': 'success', 'score': self.game_data['score']}
 
-    def main_loop(self):
-        while True:
-            user_input = self.get_user_input()
-            result = self.process_input(user_input)
-            print(result)
-            if result == 'Correct!':
-                break
+# Example usage
+handler = GameHandler({'score': 100})
+result = handler.handle_game()
+print(result)  # Output: {'status': 'success', 'score': 100}  
 
-if __name__ == '__main__':
-    game_handler = GameHandler()
-    game_handler.main_loop()
+handler_invalid = GameHandler({'score': -50})
+result_invalid = handler_invalid.handle_game()
+print(result_invalid)  # Output: {'error': 'Score cannot be negative.'}
