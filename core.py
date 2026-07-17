@@ -1,28 +1,30 @@
+import random
 import time
 
-def optimize_performance(data):
-    start_time = time.time()
-    optimized_data = set(data)  # Removing duplicates for better performance
-    processed_data = []
+class Game:
+    def __init__(self, name):
+        self.name = name
+        self.score = 0
+        self.is_running = False
 
-    for item in optimized_data:
-        processed_item = complex_computation(item)
-        processed_data.append(processed_item)
+    def start(self):
+        self.is_running = True
+        print(f'Game {self.name} has started!')
 
-    print(f"Processing completed in {time.time() - start_time:.4f} seconds")
-    return processed_data
+    def play(self):
+        if not self.is_running:
+            print('Game is not started yet!')
+            return
+        while self.score < 10:
+            score_increment = random.randint(1, 3)
+            self.score += score_increment
+            print(f'Score incremented by {score_increment}. Current score: {self.score}')
+            time.sleep(1)
+        print('Congratulations, you reached the score of 10!')
+        self.is_running = False
 
-
-def complex_computation(item):
-    return item ** 2 + 10 * item + 1  # Example computation simplification
-
-
-def run_game_loop(data):
-    while True:
-        optimized_result = optimize_performance(data)
-        # Further game logic and rendering would occur here
-        break  # Prevent infinite looping during optimization testing
 
 if __name__ == '__main__':
-    sample_data = list(range(1000))  # Example data
-    run_game_loop(sample_data)
+    game = Game('Adventures')
+    game.start()
+    game.play()
