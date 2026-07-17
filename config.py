@@ -2,26 +2,26 @@ import json
 import os
 
 class ConfigLoader:
-    def __init__(self, default_config_path):
-        self.default_config_path = default_config_path
-        self.config = self.load_defaults()
+    def __init__(self, default_config, user_config_path):
+        self.default_config = default_config
+        self.user_config_path = user_config_path
+        self.config = self.load_config()
 
-    def load_defaults(self):
-        if not os.path.exists(self.default_config_path):
-            raise FileNotFoundError(f"Default config not found at {self.default_config_path}")
-        with open(self.default_config_path) as config_file:
-            return json.load(config_file)
+    def load_config(self):
+        config = self.default_config.copy()
+        if os.path.exists(self.user_config_path):
+            with open(self.user_config_path, 'r') as user_config_file:
+                user_config = json.load(user_config_file)
+                config.update(user_config)
+        return config
 
-    def update_config(self, custom_config_path):
-        if os.path.exists(custom_config_path):
-            with open(custom_config_path) as custom_file:
-                custom_config = json.load(custom_file)
-            self.config.update(custom_config)
+    def get(self, key, default=None):
+        return self.config.get(key, default)
 
-    def get_config(self):
-        return self.config
-
+# Usage example:
 if __name__ == '__main__':
-    loader = ConfigLoader('default_config.json')
-    loader.update_config('user_config.json')
-    print(loader.get_config())
+    defaults = {'volume': 50, 'resolution': '1920x1080'}
+    loader = ConfigLoader(defaults, 'user_config.json')
+    print(loader.get('volume'))
+    print(loader.get('resolution'))
+    print(loader.get('fullscreen', False))
