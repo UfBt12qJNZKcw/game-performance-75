@@ -1,24 +1,23 @@
 import re
 
 def validate_username(username):
-    return bool(re.match('^[a-zA-Z0-9_]{3,15}$', username))
-
+    if not isinstance(username, str) or len(username) < 3:
+        return False
+    if re.search(r'[^a-zA-Z0-9]', username):
+        return False
+    return True
 
 def validate_email(email):
-    regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(regex, email))
-
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    return re.match(email_regex, email) is not None
 
 def validate_password(password):
-    return (len(password) >= 8
-            and any(c.isdigit() for c in password)
-            and any(c.isupper() for c in password)
-            and any(c.islower() for c in password))
-
-
-def validate_game_id(game_id):
-    return isinstance(game_id, int) and game_id > 0
-
-
-def validate_score(score):
-    return isinstance(score, (int, float)) and score >= 0
+    if len(password) < 8:
+        return False
+    if not re.search(r'[A-Z]', password):
+        return False
+    if not re.search(r'[a-z]', password):
+        return False
+    if not re.search(r'[0-9]', password):
+        return False
+    return True
