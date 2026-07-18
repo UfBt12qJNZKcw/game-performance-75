@@ -1,30 +1,29 @@
 import random
-import time
+import json
 
-class Game:
-    def __init__(self, name):
-        self.name = name
-        self.score = 0
-        self.is_running = False
+def get_user_input(prompt, valid_inputs):
+    user_input = input(prompt)
+    while user_input not in valid_inputs:
+        print(f"Invalid input. Please choose from {valid_inputs}.")
+        user_input = input(prompt)
+    return user_input
 
-    def start(self):
-        self.is_running = True
-        print(f'Game {self.name} has started!')
+def main_game_loop():
+    actions = ['move', 'shoot', 'reload']
+    print("Welcome to the game!")
+    while True:
+        user_action = get_user_input("Choose your action (move/shoot/reload): ", actions)
+        process_action(user_action)
 
-    def play(self):
-        if not self.is_running:
-            print('Game is not started yet!')
-            return
-        while self.score < 10:
-            score_increment = random.randint(1, 3)
-            self.score += score_increment
-            print(f'Score incremented by {score_increment}. Current score: {self.score}')
-            time.sleep(1)
-        print('Congratulations, you reached the score of 10!')
-        self.is_running = False
+    print("Thanks for playing!")
 
+def process_action(action):
+    if action == 'move':
+        print("You move forward!")
+    elif action == 'shoot':
+        print("Bang! You've shot your weapon!")
+    elif action == 'reload':
+        print("You reload your weapon.")
 
 if __name__ == '__main__':
-    game = Game('Adventures')
-    game.start()
-    game.play()
+    main_game_loop()
