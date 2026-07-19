@@ -1,28 +1,23 @@
 class GameError(Exception):
+    """Base class for exceptions in this game."""
     pass
 
-class ConnectionError(GameError):
-    def __init__(self, message='Unable to connect to the game server.'):
-        super().__init__(message)
+class InvalidInputError(GameError):
+    """Raised for invalid inputs."""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
 
-class ValidationError(GameError):
-    def __init__(self, message='Validation failed for provided data.'): 
-        super().__init__(message)
-
-class ResourceNotFound(GameError):
+class ResourceNotFoundError(GameError):
+    """Raised when a resource is not found."""
     def __init__(self, resource):
-        message = f'Resource {resource} not found.'
-        super().__init__(message)
+        self.resource = resource
+        self.message = f'Resource {resource} not found.'
+        super().__init__(self.message)
 
-class PerformanceException(GameError):
-    def __init__(self, performance_metric):
-        message = f'Performance issue detected: {performance_metric}'
-        super().__init__(message)
-
-def check_resource(resource):
-    if resource is None:
-        raise ResourceNotFound('Game asset')
-
-def validate_score(score):
-    if not (0 <= score <= 100):
-        raise ValidationError(f'Score {score} is out of range [0-100].')
+class GameLogicError(GameError):
+    """Raised for logical errors within game processing."""
+    def __init__(self, logic_issue):
+        self.logic_issue = logic_issue
+        self.message = f'Game logic error occurred: {logic_issue}'
+        super().__init__(self.message)
