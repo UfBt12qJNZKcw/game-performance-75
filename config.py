@@ -1,27 +1,32 @@
-import json
 import os
+import json
 
-class ConfigLoader:
-    def __init__(self, default_config, user_config_path):
-        self.default_config = default_config
-        self.user_config_path = user_config_path
-        self.config = self.load_config()
+class ConfigError(Exception):
+    pass
 
-    def load_config(self):
-        config = self.default_config.copy()
-        if os.path.exists(self.user_config_path):
-            with open(self.user_config_path, 'r') as user_config_file:
-                user_config = json.load(user_config_file)
-                config.update(user_config)
-        return config
+def load_config(filepath):
+    if not os.path.isfile(filepath):
+        raise ConfigError(f"Configuration file not found: {filepath}")
+    try:
+        with open(filepath, 'r') as file:
+            config = json.load(file)
+    except json.JSONDecodeError as e:
+        raise ConfigError(f"Error decoding JSON: {str(e)}")
+    except Exception as e:
+        raise ConfigError(f"Unexpected error: {str(e)}")
+    validate_config(config)
+    return config
 
-    def get(self, key, default=None):
-        return self.config.get(key, default)
+def validate_config(config):
+    required_keys = ['setting1', 'setting2', 'setting3']
+    for key in required_keys:
+        if key not in config:
+            raise ConfigError(f"Missing required config key: {key}")
 
-# Usage example:
+# Example usage
 if __name__ == '__main__':
-    defaults = {'volume': 50, 'resolution': '1920x1080'}
-    loader = ConfigLoader(defaults, 'user_config.json')
-    print(loader.get('volume'))
-    print(loader.get('resolution'))
-    print(loader.get('fullscreen', False))
+    try:
+        config = load_config('config.json')
+        print(config)
+    except ConfigError as e:
+        print(f'Configuration error: {e}')
