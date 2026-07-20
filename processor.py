@@ -1,38 +1,33 @@
 import random
+import json
 
 class GameProcessor:
     def __init__(self):
-        self.players = []
+        self.score = 0
+        self.max_score = 100
 
-    def add_player(self, player_name):
-        if not isinstance(player_name, str) or not player_name:
-            raise ValueError('Player name must be a non-empty string.')
-        if player_name in self.players:
-            raise ValueError('Player already exists.')
-        self.players.append(player_name)
+    def process_input(self, user_input):
+        if self.validate_input(user_input):
+            self.score += int(user_input)
+            if self.score > self.max_score:
+                self.score = self.max_score
+            return self.get_status()
+        else:
+            return json.dumps({'error': 'Invalid input'});
 
-    def start_game(self):
-        if len(self.players) < 2:
-            raise RuntimeError('Not enough players to start the game.')
-        random.shuffle(self.players)
-        print(f'Game starting with players: {self.players}')
+    def validate_input(self, user_input):
+        try:
+            value = int(user_input)
+            return 0 <= value <= 10  # Allow input from 0 to 10
+        except ValueError:
+            return False
 
-    def remove_player(self, player_name):
-        if player_name not in self.players:
-            raise ValueError('Player does not exist.')
-        self.players.remove(player_name)
-
-    def get_player_count(self):
-        return len(self.players)
-
-    def reset_game(self):
-        self.players.clear()
+    def get_status(self):
+        return json.dumps({'score': self.score, 'status': 'Running'})
 
 if __name__ == '__main__':
-    processor = GameProcessor()
-    try:
-        processor.add_player('Alice')
-        processor.add_player('Bob')
-        processor.start_game()
-    except Exception as e:
-        print(f'Error occurred: {e}')
+    gp = GameProcessor()
+    while True:
+        user_input = input('Enter your input (0-10): ')
+        status = gp.process_input(user_input)
+        print(status)
