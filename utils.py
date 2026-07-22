@@ -1,28 +1,28 @@
-import time
-import functools
+import random
+import math
 
-def timeit(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        end = time.perf_counter()
-        print(f'{func.__name__} executed in {{end - start}} seconds')
-        return result
-    return wrapper
+def random_position(limit_x, limit_y):
+    return (random.randint(0, limit_x), random.randint(0, limit_y))
 
-@timeit
-def expensive_computation(data):
-    total = 0
-    for num in data:
-        total += num ** 2
-    return total
 
-@timeit
-def optimized_processing(data):
-    return sum(num ** 2 for num in data)
+def distance(point1, point2):
+    return math.sqrt((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2)
 
-if __name__ == '__main__':
-    sample_data = range(1, 10000)
-    print(expensive_computation(sample_data))
-    print(optimized_processing(sample_data))
+
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
+
+
+def lerp(start, end, t):
+    return start + (end - start) * t
+
+
+def choose_random(lst):
+    return random.choice(lst)
+
+
+def normalize_vector(vector):
+    length = math.sqrt(vector[0] ** 2 + vector[1] ** 2)
+    if length == 0:
+        return (0, 0)
+    return (vector[0] / length, vector[1] / length)
