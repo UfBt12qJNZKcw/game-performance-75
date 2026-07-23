@@ -1,27 +1,28 @@
 import re
 
-class InputValidator:
-    @staticmethod
-    def is_valid_username(username):
-        return bool(re.match(r'^[a-zA-Z0-9_]{3,16}$', username))
+def validate_username(username):
+    if not isinstance(username, str) or len(username) < 3:
+        return False
+    return re.match(r'^[a-zA-Z0-9_.]+$', username) is not None
 
-    @staticmethod
-    def is_valid_email(email):
-        return bool(re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email))
 
-    @staticmethod
-    def is_valid_password(password):
-        return (len(password) >= 8 and 
-                any(c.isdigit() for c in password) and 
-                any(c.isupper() for c in password) and 
-                any(c.islower() for c in password))
+def validate_email(email):
+    if not isinstance(email, str):
+        return False
+    return re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email) is not None
 
-    @staticmethod
-    def validate_input(username, email, password):
-        if not InputValidator.is_valid_username(username):
-            raise ValueError('Invalid username')
-        if not InputValidator.is_valid_email(email):
-            raise ValueError('Invalid email')
-        if not InputValidator.is_valid_password(password):
-            raise ValueError('Invalid password')
-        return True
+
+def validate_password(password):
+    if len(password) < 8:
+        return False
+    return (re.search(r'[A-Za-z]', password) and 
+            re.search(r'[0-9]', password) and 
+            re.search(r'[@$!%*?&]', password)) is not None
+
+
+def validate_age(age):
+    return isinstance(age, int) and 0 < age < 120
+
+
+def validate_game_score(score):
+    return isinstance(score, (int, float)) and 0 <= score <= 100
