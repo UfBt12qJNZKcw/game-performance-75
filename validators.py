@@ -1,23 +1,27 @@
-def validate_input(input_value):
-    if not isinstance(input_value, (int, float)):
-        raise ValueError('Input must be a number')
-    if input_value < 0:
-        raise ValueError('Input must be a non-negative number')
-    return True
+import re
 
-def main_loop():
-    while True:
-        user_input = input('Enter a number for processing: ')
-        try:
-            processed_input = float(user_input)
-            validate_input(processed_input)
-            print(f'Processing: {processed_input}')
-            # Insert main processing logic here
-        except ValueError as e:
-            print(e)
-        except KeyboardInterrupt:
-            print('\nExiting the game loop.')
-            break
+class InputValidator:
+    @staticmethod
+    def is_valid_username(username):
+        return bool(re.match(r'^[a-zA-Z0-9_]{3,16}$', username))
 
-if __name__ == '__main__':
-    main_loop()
+    @staticmethod
+    def is_valid_email(email):
+        return bool(re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email))
+
+    @staticmethod
+    def is_valid_password(password):
+        return (len(password) >= 8 and 
+                any(c.isdigit() for c in password) and 
+                any(c.isupper() for c in password) and 
+                any(c.islower() for c in password))
+
+    @staticmethod
+    def validate_input(username, email, password):
+        if not InputValidator.is_valid_username(username):
+            raise ValueError('Invalid username')
+        if not InputValidator.is_valid_email(email):
+            raise ValueError('Invalid email')
+        if not InputValidator.is_valid_password(password):
+            raise ValueError('Invalid password')
+        return True
