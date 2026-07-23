@@ -1,36 +1,47 @@
-class GameError(Exception):
-    pass
+import random
+from typing import List, Dict, Any
 
-class GameHandler:
-    def __init__(self, game_data):
-        self.game_data = game_data
+def game_event_trigger(player_id: int, event_type: str, event_data: Dict[str, Any]) -> None:
+    """
+    Triggers a game event for a player.
 
-    def validate_data(self):
-        if not isinstance(self.game_data, dict):
-            raise GameError('Game data must be a dictionary.')
-        if 'score' not in self.game_data:
-            raise GameError('Game data must contain a score.')
-        if not isinstance(self.game_data['score'], (int, float)):
-            raise GameError('Score must be a number.')
-        if self.game_data['score'] < 0:
-            raise GameError('Score cannot be negative.')
+    Parameters:
+    player_id (int): Unique identifier for the player.
+    event_type (str): The type of event to trigger.
+    event_data (Dict[str, Any]): Additional data related to the event.
+    """
+    print(f"Triggering {event_type} for player {player_id} with data: {event_data}")
 
-    def handle_game(self):
-        try:
-            self.validate_data()
-            return self.process_game()
-        except GameError as e:
-            return {'error': str(e)}
 
-    def process_game(self):
-        # Placeholder for game processing logic
-        return {'status': 'success', 'score': self.game_data['score']}
+def generate_random_loot(player_id: int) -> List[str]:
+    """
+    Generates a list of random loot items for the player.
 
-# Example usage
-handler = GameHandler({'score': 100})
-result = handler.handle_game()
-print(result)  # Output: {'status': 'success', 'score': 100}  
+    Parameters:
+    player_id (int): Unique identifier for the player.
 
-handler_invalid = GameHandler({'score': -50})
-result_invalid = handler_invalid.handle_game()
-print(result_invalid)  # Output: {'error': 'Score cannot be negative.'}
+    Returns:
+    List[str]: List of loot items obtained by the player.
+    """
+    loot_items = ['Sword', 'Shield', 'Potion', 'Gold', 'Armor']
+    num_loot = random.randint(1, 3)
+    obtained_loot = random.sample(loot_items, num_loot)
+    print(f"Player {player_id} obtained loot: {obtained_loot}")
+    return obtained_loot
+
+
+def handle_player_action(player_id: int, action: str) -> None:
+    """
+    Handles an action performed by the player.
+
+    Parameters:
+    player_id (int): Unique identifier for the player.
+    action (str): The action to be handled.
+    """
+    print(f"Player {player_id} performed action: {action}")
+    if action == 'loot':
+        loot = generate_random_loot(player_id)
+        game_event_trigger(player_id, 'loot', {'items': loot})
+    elif action == 'attack':
+        game_event_trigger(player_id, 'attack', {'damage': random.randint(5, 15)})
+
