@@ -1,27 +1,25 @@
-class GameError(Exception):
-    """Base class for exceptions in the game."""
+class InputValidationError(Exception):
     pass
 
-class InvalidMoveError(GameError):
-    """Raised when a move is invalid."""
-    def __init__(self, message="Invalid move attempted."):
-        self.message = message
-        super().__init__(self.message)
-
-class PlayerNotFoundError(GameError):
-    """Raised when a specified player is not found."""
-    def __init__(self, player_name):
-        self.message = f"Player '{player_name}' not found."
-        super().__init__(self.message)
-
-class GameAlreadyStartedError(GameError):
-    """Raised when trying to modify a game in progress."""
+class GameProcessor:
     def __init__(self):
-        self.message = "Game has already started."
-        super().__init__(self.message)
+        self.valid_inputs = set(['move', 'attack', 'defend', 'quit'])
 
-class InsufficientResourcesError(GameError):
-    """Raised when a player lacks resources to perform an action."""
-    def __init__(self, resource):
-        self.message = f"Insufficient resources: {resource}."
-        super().__init__(self.message)
+    def process_input(self, user_input):
+        if not self.is_valid_input(user_input):
+            raise InputValidationError(f'Invalid input: {user_input}')
+        print(f'Processing: {user_input}')  # Simulating action
+
+    def is_valid_input(self, user_input):
+        return user_input in self.valid_inputs
+
+    def main_loop(self):
+        while True:
+            user_input = input('Enter action (move, attack, defend, quit): ')
+            try:
+                self.process_input(user_input)
+                if user_input == 'quit':
+                    break
+            except InputValidationError as e:
+                print(str(e))
+                print('Please try again.')
