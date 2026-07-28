@@ -1,22 +1,17 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
 
-def setup_logger(log_file='game.log', max_bytes=5 * 1024 * 1024, backup_count=5):
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-    
-    logger = logging.getLogger('GameLogger')
-    logger.setLevel(logging.DEBUG)
-    
-    handler = RotatingFileHandler(os.path.join('logs', log_file), maxBytes=max_bytes, backupCount=backup_count)
+def setup_logger(name='game_logger', log_file='game_performance.log', level=logging.INFO):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
     handler.setFormatter(formatter)
-    
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
     logger.addHandler(handler)
     return logger
 
-# Example usage
 if __name__ == '__main__':
     logger = setup_logger()
-    logger.info('Logger is set up and ready.')
+    logger.info('Logger is set up successfully.')
+    logger.warning('This is a warning message.')
+    logger.error('An error has occurred!')
