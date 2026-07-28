@@ -1,25 +1,33 @@
-class InputValidationError(Exception):
+class GameError(Exception):
+    """Base class for exceptions in the game."""
     pass
 
-class GameProcessor:
-    def __init__(self):
-        self.valid_inputs = set(['move', 'attack', 'defend', 'quit'])
+class InvalidDataError(GameError):
+    """Raised when the game data is invalid."""
+    def __init__(self, message, data):
+        self.message = message
+        self.data = data
+        super().__init__(self.message)
 
-    def process_input(self, user_input):
-        if not self.is_valid_input(user_input):
-            raise InputValidationError(f'Invalid input: {user_input}')
-        print(f'Processing: {user_input}')  # Simulating action
+    def __str__(self):
+        return f'{self.message}: {self.data}'
 
-    def is_valid_input(self, user_input):
-        return user_input in self.valid_inputs
+class UnsupportedFormatError(GameError):
+    """Raised for unsupported data formats."""
+    def __init__(self, format_type):
+        self.format_type = format_type
+        self.message = f'Unsupported data format: {self.format_type}'
+        super().__init__(self.message)
 
-    def main_loop(self):
-        while True:
-            user_input = input('Enter action (move, attack, defend, quit): ')
-            try:
-                self.process_input(user_input)
-                if user_input == 'quit':
-                    break
-            except InputValidationError as e:
-                print(str(e))
-                print('Please try again.')
+    def __str__(self):
+        return self.message
+
+class GameNotFoundError(GameError):
+    """Raised when the specified game is not found."""
+    def __init__(self, game_id):
+        self.game_id = game_id
+        self.message = f'Game with ID {self.game_id} not found.'
+        super().__init__(self.message)
+
+    def __str__(self):
+        return self.message
