@@ -1,25 +1,26 @@
 import json
 import os
 
-def load_config(file_path, defaults):
-    if not os.path.exists(file_path):
-        return defaults
-    with open(file_path, 'r') as f:
-        config = json.load(f)
-    return {**defaults, **config}
+class ConfigLoader:
+    def __init__(self, default_config_file='default_config.json', user_config_file='user_config.json'):
+        self.default_config = self.load_config(default_config_file)
+        self.user_config = self.load_config(user_config_file)
+        self.final_config = self.merge_configs(self.default_config, self.user_config)
 
-# Default configuration
-DEFAULTS = {
-    'window_size': (800, 600),
-    'fullscreen': False,
-    'volume': 0.5,
-    'language': 'en',
-}
+    def load_config(self, filename):
+        if not os.path.exists(filename):
+            return {}
+        with open(filename, 'r') as file:
+            return json.load(file)
 
-# Load the configuration
-config_file_path = 'config.json'
-config = load_config(config_file_path, DEFAULTS)
+    def merge_configs(self, default, user):
+        config = default.copy()  # Start with the defaults
+        config.update(user)      # Override with user settings
+        return config
 
-if __name__ == '__main__':
-    print('Loaded Configuration:')
-    print(config)
+    def get_config(self):
+        return self.final_config
+
+# Example usage:
+# loader = ConfigLoader()
+# print(loader.get_config())
