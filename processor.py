@@ -1,33 +1,31 @@
-import random
 import json
 
 class GameProcessor:
     def __init__(self):
-        self.score = 0
-        self.max_score = 100
+        self.player_actions = []
 
-    def process_input(self, user_input):
-        if self.validate_input(user_input):
-            self.score += int(user_input)
-            if self.score > self.max_score:
-                self.score = self.max_score
-            return self.get_status()
-        else:
-            return json.dumps({'error': 'Invalid input'});
+    def validate_input(self, action):
+        valid_actions = {'move', 'attack', 'heal', 'defend'}
+        return action in valid_actions
 
-    def validate_input(self, user_input):
-        try:
-            value = int(user_input)
-            return 0 <= value <= 10  # Allow input from 0 to 10
-        except ValueError:
-            return False
+    def process_action(self, action):
+        if not self.validate_input(action):
+            print(f"Invalid action: {action}")
+            return
+        self.player_actions.append(action)
+        print(f"Action processed: {action}")
 
-    def get_status(self):
-        return json.dumps({'score': self.score, 'status': 'Running'})
+    def main_loop(self):
+        while True:
+            try:
+                user_input = input("Enter action (move, attack, heal, defend): ")
+                if user_input.lower() == 'exit':
+                    break
+                self.process_action(user_input.lower())
+            except KeyboardInterrupt:
+                print("Exiting game...")
+                break
 
 if __name__ == '__main__':
-    gp = GameProcessor()
-    while True:
-        user_input = input('Enter your input (0-10): ')
-        status = gp.process_input(user_input)
-        print(status)
+    processor = GameProcessor()
+    processor.main_loop()
