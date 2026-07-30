@@ -1,17 +1,31 @@
 import logging
-from logging.handlers import RotatingFileHandler
 
-def setup_logger(name='game_logger', log_file='game_performance.log', level=logging.INFO):
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
-    handler.setFormatter(formatter)
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
-    return logger
+class GameLogger:
+    def __init__(self, name):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
+    def log_info(self, message):
+        self.logger.info(message)
+
+    def log_warning(self, message):
+        self.logger.warning(message)
+
+    def log_error(self, message):
+        self.logger.error(message)
+
+    def log_debug(self, message):
+        self.logger.debug(message)
+
+logger = GameLogger('GamePerformanceLogger')
+
+# Example usage
 if __name__ == '__main__':
-    logger = setup_logger()
-    logger.info('Logger is set up successfully.')
-    logger.warning('This is a warning message.')
-    logger.error('An error has occurred!')
+    logger.log_info('Game started')
+    logger.log_warning('Low memory warning')
+    logger.log_error('Unexpected error occurred')
+    logger.log_debug('Debugging information')
