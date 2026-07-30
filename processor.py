@@ -1,31 +1,19 @@
+import random
 import json
 
-class GameProcessor:
-    def __init__(self):
-        self.player_actions = []
-
-    def validate_input(self, action):
-        valid_actions = {'move', 'attack', 'heal', 'defend'}
-        return action in valid_actions
-
-    def process_action(self, action):
-        if not self.validate_input(action):
-            print(f"Invalid action: {action}")
-            return
-        self.player_actions.append(action)
-        print(f"Action processed: {action}")
-
-    def main_loop(self):
-        while True:
-            try:
-                user_input = input("Enter action (move, attack, heal, defend): ")
-                if user_input.lower() == 'exit':
-                    break
-                self.process_action(user_input.lower())
-            except KeyboardInterrupt:
-                print("Exiting game...")
-                break
+def process_action(action):
+    valid_actions = ['attack', 'defend', 'heal']
+    if action not in valid_actions:
+        raise ValueError(f"Invalid action: '{action}'. Valid actions are {valid_actions}.")
+    return f"Action '{action}' processed successfully."
 
 if __name__ == '__main__':
-    processor = GameProcessor()
-    processor.main_loop()
+    actions = ['attack', 'defend', 'heal', 'run']  # Simulating user input
+    results = []
+    for action in actions:
+        try:
+            result = process_action(action)
+            results.append(result)
+        except ValueError as e:
+            results.append(str(e))
+    print(json.dumps(results, indent=2))
