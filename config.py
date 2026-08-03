@@ -1,26 +1,20 @@
-import json
 import os
 
-class ConfigLoader:
-    def __init__(self, default_config_file='default_config.json', user_config_file='user_config.json'):
-        self.default_config = self.load_config(default_config_file)
-        self.user_config = self.load_config(user_config_file)
-        self.final_config = self.merge_configs(self.default_config, self.user_config)
+class Config:
+    def __init__(self):
+        self.debug = self.get_env_variable('DEBUG', default='False') == 'True'
+        self.db_url = self.get_env_variable('DATABASE_URL', default='sqlite:///default.db')
+        self.api_key = self.get_env_variable('API_KEY')
 
-    def load_config(self, filename):
-        if not os.path.exists(filename):
-            return {}
-        with open(filename, 'r') as file:
-            return json.load(file)
+    @staticmethod
+    def get_env_variable(var_name, default=None):
+        return os.environ.get(var_name, default)
 
-    def merge_configs(self, default, user):
-        config = default.copy()  # Start with the defaults
-        config.update(user)      # Override with user settings
-        return config
+    def load(self):
+        return {
+            'debug': self.debug,
+            'db_url': self.db_url,
+            'api_key': self.api_key
+        }
 
-    def get_config(self):
-        return self.final_config
-
-# Example usage:
-# loader = ConfigLoader()
-# print(loader.get_config())
+config = Config().load()
