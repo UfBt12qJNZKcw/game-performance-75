@@ -1,23 +1,46 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import os
 
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-LOG_FILE = "game_performance.log"
-LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
-LOG_BACKUP_COUNT = 3
+class CustomLogger:
+    def __init__(self, name):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
+    def log_info(self, message):
+        try:
+            self.logger.info(message)
+        except Exception as e:
+            self.logger.error(f'Failed to log info: {e}')
 
-def setup_logger(name):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-    handler = RotatingFileHandler(LOG_FILE, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT)
-    formatter = logging.Formatter(LOG_FORMAT)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
+    def log_warning(self, message):
+        try:
+            self.logger.warning(message)
+        except Exception as e:
+            self.logger.error(f'Failed to log warning: {e}')
 
+    def log_error(self, message):
+        try:
+            self.logger.error(message)
+        except Exception as e:
+            self.logger.error(f'Failed to log error: {e}')
+
+    def log_to_file(self, message, filename):
+        try:
+            if not os.path.isdir(os.path.dirname(filename)):
+                raise ValueError('Invalid directory for log file')
+            with open(filename, 'a') as file:
+                file.write(f'{message}\n')
+        except (IOError, ValueError) as e:
+            self.logger.error(f'Failed to log to file: {e}')
+
+# Example usage
 if __name__ == '__main__':
-    logger = setup_logger('GameLogger')
-    logger.info('Logger is set up and running.')
-    logger.error('This is a test error message.')
-    logger.debug('This will not show up unless the level is set to DEBUG.')
+    logger = CustomLogger('GameLogger')
+    logger.log_info('Game started')
+    logger.log_warning('Low memory warning')
+    logger.log_error('Unexpected error occurred')
+    logger.log_to_file('Game log entry', 'logs/game.log')
