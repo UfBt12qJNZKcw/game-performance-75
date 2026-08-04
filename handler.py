@@ -2,19 +2,28 @@ import time
 import random
 import requests
 
-def retry_request(url, retries=5, delay=2):
+class NetworkError(Exception):
+    pass
+
+def perform_request(url, retries=3, delay=2):
     for attempt in range(retries):
         try:
+            print(f'Attempt {attempt + 1} to reach {url}')
             response = requests.get(url)
-            response.raise_for_status()  # Raise an error for bad responses
-            return response.json()  # Assume we want JSON response
+            response.raise_for_status()
+            return response.json()
         except requests.exceptions.RequestException as e:
-            print(f'Attempt {attempt + 1} failed: {e}')
-            time.sleep(delay)
-            delay *= 2  # Exponential backoff
-    return {'error': 'Maximum retries exceeded'}
+            print(f'Error: {e}')
+            if attempt < retries - 1:
+                wait_time = delay + random.uniform(0, 1)
+                print(f'Retrying in {wait_time:.2f} seconds...')
+                time.sleep(wait_time)
+            else:
+                raise NetworkError(f'Failed to reach {url} after {retries} attempts')
 
 if __name__ == '__main__':
-    url = 'https://jsonplaceholder.typicode.com/posts'
-    data = retry_request(url)
-    print(data)  # Output the received data
+    try:
+        data = perform_request('https://api.example.com/data')
+        print('Data received:', data)
+    except NetworkError as e:
+        print(e)
