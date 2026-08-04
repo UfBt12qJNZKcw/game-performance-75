@@ -1,33 +1,29 @@
 class GameError(Exception):
-    """Base class for exceptions in the game."""
     pass
 
-class InvalidDataError(GameError):
-    """Raised when the game data is invalid."""
-    def __init__(self, message, data):
+class InvalidInputError(GameError):
+    def __init__(self, message):
         self.message = message
-        self.data = data
         super().__init__(self.message)
 
-    def __str__(self):
-        return f'{self.message}: {self.data}'
-
-class UnsupportedFormatError(GameError):
-    """Raised for unsupported data formats."""
-    def __init__(self, format_type):
-        self.format_type = format_type
-        self.message = f'Unsupported data format: {self.format_type}'
+class OutOfBoundsError(GameError):
+    def __init__(self, position):
+        self.position = position
+        self.message = f"Position {self.position} is out of bounds"
         super().__init__(self.message)
 
-    def __str__(self):
-        return self.message
-
-class GameNotFoundError(GameError):
-    """Raised when the specified game is not found."""
-    def __init__(self, game_id):
-        self.game_id = game_id
-        self.message = f'Game with ID {self.game_id} not found.'
+class GameStateError(GameError):
+    def __init__(self, state):
+        self.state = state
+        self.message = f"Invalid game state: {self.state}"
         super().__init__(self.message)
 
-    def __str__(self):
-        return self.message
+def handle_game_errors(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except GameError as e:
+            print(f'Game Error: {e.message}')
+        except Exception as e:
+            print(f'An unexpected error occurred: {e}')
+    return wrapper
