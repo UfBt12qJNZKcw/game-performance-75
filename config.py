@@ -1,20 +1,19 @@
-import os
+import logging
+from logging.handlers import RotatingFileHandler
 
-class Config:
-    def __init__(self):
-        self.debug = self.get_env_variable('DEBUG', default='False') == 'True'
-        self.db_url = self.get_env_variable('DATABASE_URL', default='sqlite:///default.db')
-        self.api_key = self.get_env_variable('API_KEY')
+def setup_logger(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    handler = RotatingFileHandler('app.log', maxBytes=10*1024*1024, backupCount=5)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
 
-    @staticmethod
-    def get_env_variable(var_name, default=None):
-        return os.environ.get(var_name, default)
-
-    def load(self):
-        return {
-            'debug': self.debug,
-            'db_url': self.db_url,
-            'api_key': self.api_key
-        }
-
-config = Config().load()
+if __name__ == '__main__':
+    my_logger = setup_logger('my_game_logger')
+    my_logger.debug('This is a debug message')
+    my_logger.info('Informational message here')
+    my_logger.warning('Warning message')
+    my_logger.error('An error occurred')
+    my_logger.critical('Critical issue!')
