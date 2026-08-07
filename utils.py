@@ -1,46 +1,41 @@
-from typing import List, Dict
+import math
+import random
+
+def euclidean_distance(point1, point2):
+    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
-def calculate_fps(frames: List[int], time_duration: float) -> float:
-    """
-    Calculate frames per second (FPS) based on the number of frames
-    captured in a given time duration.
-
-    Args:
-        frames (List[int]): A list of frame timestamps in milliseconds.
-        time_duration (float): The total duration in seconds during which frames were captured.
-
-    Returns:
-        float: The calculated frames per second.
-    """
-    if time_duration <= 0:
-        raise ValueError('Time duration must be greater than zero.')
-    return len(frames) / time_duration
+def random_choice(choices):
+    return random.choice(choices)
 
 
-def average_ping(pings: List[int]) -> float:
-    """
-    Calculate the average ping from a list of pings.
-
-    Args:
-        pings (List[int]): A list of ping times in milliseconds.
-
-    Returns:
-        float: The average ping time.
-    """
-    if not pings:
-        return 0.0
-    return sum(pings) / len(pings)
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
 
 
-def format_stats(stats: Dict[str, float]) -> str:
-    """
-    Format game statistics into a readable string.
+def interpolate(start, end, t):
+    return start + (end - start) * t
 
-    Args:
-        stats (Dict[str, float]): A dictionary of game statistics.
 
-    Returns:
-        str: A formatted string of statistics.
-    """
-    return '\n'.join(f'{key}: {value:.2f}' for key, value in stats.items())
+def debounce(fn, delay):
+    last_call = [0]
+    def debounced(*args, **kwargs):
+        current_time = time.time()
+        if current_time - last_call[0] >= delay:
+            last_call[0] = current_time
+            return fn(*args, **kwargs)
+    return debounced
+
+
+def lerp(start, end, fraction):
+    return start + (end - start) * fraction
+
+
+def ping_pong(value, min_val, max_val):
+    if value < min_val or value > max_val:
+        return min_val + max_val - value
+    return value
+
+
+def normalize(value, min_val, max_val):
+    return (value - min_val) / (max_val - min_val) if max_val > min_val else 0.0
