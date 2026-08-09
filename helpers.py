@@ -1,28 +1,36 @@
-import time
-import random
+import json
+import logging
 
-class NetworkError(Exception):
+class GameError(Exception):
     pass
 
-def perform_network_operation():
-    if random.choice([True, False]):  # Simulate network fluctuation
-        raise NetworkError("Network issue occurred")
-    return "Success!"
+class Game:
+    def __init__(self):
+        self.state = 'initialized'
+        self.players = []
 
+    def add_player(self, player_name):
+        if not isinstance(player_name, str) or not player_name:
+            logging.error('Invalid player name provided')
+            raise GameError('Player name must be a non-empty string')
+        self.players.append(player_name)
+        logging.info(f'Player {player_name} added successfully')
 
-def retry_operation(max_retries=5, delay=2):
-    retries = 0
-    while retries < max_retries:
+    def remove_player(self, player_name):
         try:
-            result = perform_network_operation()
-            return result
-        except NetworkError as e:
-            print(f"Attempt {retries + 1}: {e}")
-            retries += 1
-            time.sleep(delay)
-    return "Failed after max retries"
+            self.players.remove(player_name)
+            logging.info(f'Player {player_name} removed successfully')
+        except ValueError:
+            logging.warning(f'Player {player_name} not found')
+            raise GameError('Player not found')
 
-# Example usage of retry logic:
-if __name__ == '__main__':
-    result = retry_operation()
-    print(result)
+    def start_game(self):
+        if len(self.players) < 2:
+            logging.error('Not enough players to start the game')
+            raise GameError('At least 2 players are required')
+        self.state = 'started'
+        logging.info('Game has started')
+
+    def to_json(self):
+        return json.dumps({'state': self.state, 'players': self.players})
+
