@@ -1,41 +1,32 @@
-import math
 import random
-
-def euclidean_distance(point1, point2):
-    return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
+import math
 
 
-def random_choice(choices):
-    return random.choice(choices)
+def generate_random_position(x_range, y_range):
+    return (random.randint(0, x_range), random.randint(0, y_range))
+
+
+def calculate_distance(pos1, pos2):
+    return math.sqrt((pos2[0] - pos1[0]) ** 2 + (pos2[1] - pos1[1]) ** 2)
 
 
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
 
 
-def interpolate(start, end, t):
+def lerp(start, end, t):
     return start + (end - start) * t
 
 
-def debounce(fn, delay):
-    last_call = [0]
-    def debounced(*args, **kwargs):
-        current_time = time.time()
-        if current_time - last_call[0] >= delay:
-            last_call[0] = current_time
-            return fn(*args, **kwargs)
-    return debounced
+def normalize_vector(vector):
+    length = math.sqrt(vector[0] ** 2 + vector[1] ** 2)
+    return (vector[0] / length, vector[1] / length) if length > 0 else (0, 0)
 
 
-def lerp(start, end, fraction):
-    return start + (end - start) * fraction
+def random_choice_from_list(items):
+    return random.choice(items)
 
 
-def ping_pong(value, min_val, max_val):
-    if value < min_val or value > max_val:
-        return min_val + max_val - value
-    return value
-
-
-def normalize(value, min_val, max_val):
-    return (value - min_val) / (max_val - min_val) if max_val > min_val else 0.0
+def shuffle_list(items):
+    random.shuffle(items)
+    return items
