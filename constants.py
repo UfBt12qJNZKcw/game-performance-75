@@ -1,37 +1,36 @@
-MAX_PLAYERS = 100
+import json
+import os
 
-# Game constants used for scaling and configurations
-FPS_LIMIT = 60
-
-# Default screen resolution settings
-SCREEN_RESOLUTION = {
-    'width': 1920,
-    'height': 1080
+DEFAULT_CONFIG = {
+    'resolution': '1920x1080',
+    'fullscreen': True,
+    'volume': 75,
+    'controls': {
+        'move_forward': 'W',
+        'move_backward': 'S',
+        'turn_left': 'A',
+        'turn_right': 'D',
+    },
 }
 
-# Game state constants
-GAME_STATES = {
-    'MENU': 0,
-    'PLAYING': 1,
-    'PAUSED': 2,
-    'GAME_OVER': 3
-}
+class ConfigLoader:
+    def __init__(self, config_file='config.json'):
+        self.config_file = config_file
+        self.config = DEFAULT_CONFIG.copy()
+        self.load_config()
 
-# Color constants in RGB format
-COLORS = {
-    'WHITE': (255, 255, 255),
-    'BLACK': (0, 0, 0),
-    'RED': (255, 0, 0),
-    'GREEN': (0, 255, 0),
-    'BLUE': (0, 0, 255)
-}
+    def load_config(self):
+        if os.path.exists(self.config_file):
+            with open(self.config_file, 'r') as file:
+                user_config = json.load(file)
+                self.config.update(user_config)
 
-# Game physics constants
-GRAVITY = 9.81  # m/s²
-JUMP_FORCE = 15  # arbitrary units
+    def get(self, key, default=None):
+        return self.config.get(key, default)
 
-# Audio volume levels
-SOUND_VOLUMES = {
-    'MUSIC': 0.5,
-    'SFX': 0.7
-}
+    def set(self, key, value):
+        self.config[key] = value
+
+    def save(self):
+        with open(self.config_file, 'w') as file:
+            json.dump(self.config, file, indent=4)
