@@ -1,26 +1,28 @@
-import json
-from typing import Any, Dict, List
+import random
+import time
+import requests
 
-class GameDataHandler:
-    def __init__(self, data: List[Dict[str, Any]]) -> None:
-        self.data = data
+def retry_request(url, max_retries=5, delay=2):
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f'Attempt {attempt + 1} failed: {e}')
+            attempt += 1
+            if attempt < max_retries:
+                wait_time = delay * (2 ** (attempt - 1))  # Exponential backoff
+                print(f'Waiting for {wait_time} seconds before retrying...')
+                time.sleep(wait_time)
+    raise Exception(f'Max retries exceeded for URL: {url}')
 
-    def filter_data(self, key: str, value: Any) -> List[Dict[str, Any]]:
-        return [entry for entry in self.data if entry.get(key) == value]
-
-    def aggregate_scores(self) -> Dict[str, int]:
-        aggregated = {}
-        for entry in self.data:
-            player = entry['player']
-            score = entry['score']
-            aggregated[player] = aggregated.get(player, 0) + score
-        return aggregated
-
-    def export_to_json(self, filename: str) -> None:
-        with open(filename, 'w') as json_file:
-            json.dump(self.data, json_file, indent=4)
-
-# Example Usage:
-# data = [{'player': 'Alice', 'score': 10}, {'player': 'Bob', 'score': 5}, {'player': 'Alice', 'score': 15}]
-# handler = GameDataHandler(data)
-# handler.export_to_json('game_data.json')
+# Example usage:
+if __name__ == '__main__':
+    url = 'https://api.example.com/data'
+    try:
+        data = retry_request(url)
+        print('Data retrieved:', data)
+    except Exception as e:
+        print('Failed to retrieve data:', e)
