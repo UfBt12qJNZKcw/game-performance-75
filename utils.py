@@ -1,32 +1,31 @@
+import json
 import random
-import math
+from datetime import datetime
 
+class GameDataHandler:
+    def __init__(self, data):
+        self.data = data
 
-def generate_random_position(x_range, y_range):
-    return (random.randint(0, x_range), random.randint(0, y_range))
+    def filter_records(self, key, value):
+        return [record for record in self.data if record.get(key) == value]
 
+    def sort_records(self, key, reverse=False):
+        return sorted(self.data, key=lambda x: x.get(key), reverse=reverse)
 
-def calculate_distance(pos1, pos2):
-    return math.sqrt((pos2[0] - pos1[0]) ** 2 + (pos2[1] - pos1[1]) ** 2)
+    def get_random_record(self):
+        return random.choice(self.data)
 
+    def to_json(self):
+        return json.dumps(self.data, default=str)
 
-def clamp(value, min_value, max_value):
-    return max(min(value, max_value), min_value)
+    @staticmethod
+    def from_json(json_str):
+        return json.loads(json_str)
 
+    def timestamp_records(self):
+        for record in self.data:
+            record['timestamp'] = datetime.now().isoformat()
 
-def lerp(start, end, t):
-    return start + (end - start) * t
-
-
-def normalize_vector(vector):
-    length = math.sqrt(vector[0] ** 2 + vector[1] ** 2)
-    return (vector[0] / length, vector[1] / length) if length > 0 else (0, 0)
-
-
-def random_choice_from_list(items):
-    return random.choice(items)
-
-
-def shuffle_list(items):
-    random.shuffle(items)
-    return items
+    def average_score(self):
+        scores = [record['score'] for record in self.data if 'score' in record]
+        return sum(scores) / len(scores) if scores else 0.0
