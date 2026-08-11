@@ -1,22 +1,34 @@
-class GameError(Exception):
+import time
+import random
+
+class NetworkError(Exception):
     pass
 
-class NotFoundError(GameError):
-    def __init__(self, item):
-        super().__init__(f'{item} not found')
+class Retry:
+    def __init__(self, max_attempts=3, base_delay=1, backoff_factor=2):
+        self.max_attempts = max_attempts
+        self.base_delay = base_delay
+        self.backoff_factor = backoff_factor
 
-class InvalidMoveError(GameError):
-    def __init__(self, move):
-        super().__init__(f'Invalid move: {move}')
+    def execute(self, func, *args, **kwargs):
+        attempts = 0
+        while attempts < self.max_attempts:
+            try:
+                return func(*args, **kwargs)
+            except NetworkError as e:
+                attempts += 1
+                wait_time = self.base_delay * (self.backoff_factor ** (attempts - 1))
+                print(f"Attempt {attempts} failed: {e}. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+        raise NetworkError(f"All {self.max_attempts} attempts failed.")
 
-class TimeoutError(GameError):
-    def __init__(self, duration):
-        super().__init__(f'Timed out after {duration} seconds')
+# Example usage:
+def mock_network_operation(success_rate=0.5):
+    if random.random() > success_rate:
+        raise NetworkError("Network operation failed")
+    return "Network operation succeeded"
 
-class InsufficientResourcesError(GameError):
-    def __init__(self, resource):
-        super().__init__(f'Insufficient {resource} available')
-
-class AuthenticationError(GameError):
-    def __init__(self, user):
-        super().__init__(f'Authentication failed for user: {user}')
+if __name__ == '__main__':
+    retry = Retry(max_attempts=5)
+    result = retry.execute(mock_network_operation)
+    print(result)
