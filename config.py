@@ -1,19 +1,30 @@
-import logging
-from logging.handlers import RotatingFileHandler
+import json
+import os
 
-def setup_logger(name):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    handler = RotatingFileHandler('app.log', maxBytes=10*1024*1024, backupCount=5)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
+class Config:
+    def __init__(self, filename='config.json'):
+        self.filename = filename
+        self.settings = self.load_config()  
 
+    def load_config(self):
+        if not os.path.exists(self.filename):
+            return {}
+        with open(self.filename, 'r') as file:
+            return json.load(file)
+
+    def get_setting(self, key, default=None):
+        return self.settings.get(key, default)
+
+    def set_setting(self, key, value):
+        self.settings[key] = value
+        self.save_config()
+
+    def save_config(self):
+        with open(self.filename, 'w') as file:
+            json.dump(self.settings, file, indent=4)
+
+# Example usage
 if __name__ == '__main__':
-    my_logger = setup_logger('my_game_logger')
-    my_logger.debug('This is a debug message')
-    my_logger.info('Informational message here')
-    my_logger.warning('Warning message')
-    my_logger.error('An error occurred')
-    my_logger.critical('Critical issue!')
+    config = Config()
+    print(config.get_setting('resolution', '1920x1080'))
+    config.set_setting('fullscreen', True)
