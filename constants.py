@@ -1,36 +1,17 @@
-import json
-import os
+VALIDATION_CRITERIA = {'min_age': 13, 'max_age': 100}
 
-DEFAULT_CONFIG = {
-    'resolution': '1920x1080',
-    'fullscreen': True,
-    'volume': 75,
-    'controls': {
-        'move_forward': 'W',
-        'move_backward': 'S',
-        'turn_left': 'A',
-        'turn_right': 'D',
-    },
+ALLOWED_GAMES = ['Fortnite', 'Apex Legends', 'Dota 2', 'League of Legends']
+
+GAME_SETTINGS = {
+    'graphics_quality': ['low', 'medium', 'high', 'ultra'],
+    'fullscreen': [True, False],
+    'volume': range(0, 101)
 }
 
-class ConfigLoader:
-    def __init__(self, config_file='config.json'):
-        self.config_file = config_file
-        self.config = DEFAULT_CONFIG.copy()
-        self.load_config()
-
-    def load_config(self):
-        if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as file:
-                user_config = json.load(file)
-                self.config.update(user_config)
-
-    def get(self, key, default=None):
-        return self.config.get(key, default)
-
-    def set(self, key, value):
-        self.config[key] = value
-
-    def save(self):
-        with open(self.config_file, 'w') as file:
-            json.dump(self.config, file, indent=4)
+# Constants for player actions
+PLAYER_ACTIONS = {
+    'move_left': 'A',
+    'move_right': 'D',
+    'jump': 'SPACE',
+    'shoot': 'LEFT_MOUSE'
+}
