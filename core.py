@@ -1,29 +1,25 @@
-import random
-import json
+import time
+import requests
 
-def get_user_input(prompt, valid_inputs):
-    user_input = input(prompt)
-    while user_input not in valid_inputs:
-        print(f"Invalid input. Please choose from {valid_inputs}.")
-        user_input = input(prompt)
-    return user_input
+class NetworkError(Exception):
+    pass
 
-def main_game_loop():
-    actions = ['move', 'shoot', 'reload']
-    print("Welcome to the game!")
-    while True:
-        user_action = get_user_input("Choose your action (move/shoot/reload): ", actions)
-        process_action(user_action)
+def retry_request(url, max_retries=5, backoff_factor=1):
+    retries = 0
+    while retries < max_retries:
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            retries += 1
+            if retries == max_retries:
+                print(f"Max retries exceeded. Error: {e}")
+                raise NetworkError(f"Failed to fetch {url}")
+            wait_time = backoff_factor * (2 ** (retries - 1))
+            print(f"Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
 
-    print("Thanks for playing!")
-
-def process_action(action):
-    if action == 'move':
-        print("You move forward!")
-    elif action == 'shoot':
-        print("Bang! You've shot your weapon!")
-    elif action == 'reload':
-        print("You reload your weapon.")
-
-if __name__ == '__main__':
-    main_game_loop()
+# Example usage:
+# data = retry_request('https://api.example.com/data')
+# print(data)
