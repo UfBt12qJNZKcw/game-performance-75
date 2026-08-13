@@ -1,33 +1,37 @@
-import random
+import time
+from functools import wraps
 
-class GameError(Exception):
-    pass
+# Performance optimization decorator
 
-class Game:
-    def __init__(self):
-        self.score = 0
-        self.level = 1
+def profile(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        print(f'Function {func.__name__} executed in {end_time - start_time:.4f} seconds')
+        return result
+    return wrapper
 
-    def play(self):
-        try:
-            self.start_game()
-        except GameError as e:
-            print(f'Game error occurred: {e}')
+class GameEngine:
+    def __init__(self, name):
+        self.name = name
+        self.frame_rate = 60
 
-    def start_game(self):
-        trying_level = random.choice([1, 0, -1])  # Simulate levels
-        if trying_level < 0:
-            raise GameError('Invalid level selection')
-        self.level = trying_level
-        self.simulate_gameplay()
+    @profile
+    def run(self):
+        print(f'Running {self.name} at {self.frame_rate} FPS')
+        # Main game loop simulation
+        for _ in range(3):  # Simulate some processing
+            time.sleep(0.2)
 
-    def simulate_gameplay(self):
-        if self.level == 0:
-            raise GameError('Level cannot be zero')
-        for _ in range(5):  # simulate 5 rounds of gameplay
-            self.score += random.randint(1, 10)
-        print(f'Final score: {self.score} on level {self.level}')
+    @profile
+    def load_assets(self, assets):
+        print(f'Loading assets: {assets}')
+        # Simulate asset loading
+        time.sleep(len(assets) * 0.1)
 
 if __name__ == '__main__':
-    game = Game()
-    game.play()
+    game_engine = GameEngine('EpicGame')
+    game_engine.load_assets(['sprite1.png', 'sprite2.png', 'level1.map'])
+    game_engine.run()
