@@ -1,37 +1,36 @@
-import time
-from functools import wraps
+import random
 
-# Performance optimization decorator
+class Game:
+    def __init__(self):
+        self.score = 0
+        self.player_health = 100
+        self.valid_actions = ['attack', 'defend', 'heal']
 
-def profile(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        print(f'Function {func.__name__} executed in {end_time - start_time:.4f} seconds')
-        return result
-    return wrapper
+    def validate_input(self, action):
+        return action in self.valid_actions
 
-class GameEngine:
-    def __init__(self, name):
-        self.name = name
-        self.frame_rate = 60
+    def process_action(self, action):
+        if not self.validate_input(action):
+            raise ValueError(f'Invalid action: {action}')
+        if action == 'attack':
+            self.score += random.randint(5, 10)
+            print(f'You attacked! Score: {self.score}')
+        elif action == 'defend':
+            self.player_health -= random.randint(1, 5)
+            print(f'You defended! Health: {self.player_health}')
+        elif action == 'heal':
+            self.player_health += random.randint(5, 15)
+            print(f'You healed! Health: {self.player_health}')
 
-    @profile
-    def run(self):
-        print(f'Running {self.name} at {self.frame_rate} FPS')
-        # Main game loop simulation
-        for _ in range(3):  # Simulate some processing
-            time.sleep(0.2)
-
-    @profile
-    def load_assets(self, assets):
-        print(f'Loading assets: {assets}')
-        # Simulate asset loading
-        time.sleep(len(assets) * 0.1)
+    def main_loop(self):
+        while self.player_health > 0:
+            action = input('Enter your action (attack, defend, heal): ').strip().lower()
+            try:
+                self.process_action(action)
+            except ValueError as ve:
+                print(ve)
+        print('Game Over!')
 
 if __name__ == '__main__':
-    game_engine = GameEngine('EpicGame')
-    game_engine.load_assets(['sprite1.png', 'sprite2.png', 'level1.map'])
-    game_engine.run()
+    game = Game()
+    game.main_loop()
