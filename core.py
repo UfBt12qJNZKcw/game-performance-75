@@ -1,36 +1,32 @@
 import random
+import sys
 
-class Game:
-    def __init__(self):
-        self.score = 0
-        self.player_health = 100
-        self.valid_actions = ['attack', 'defend', 'heal']
+def game_loop():
+    print("Welcome to the game! Please enter your commands.")
+    while True:
+        user_input = input("> ").strip().lower()
+        if validate_input(user_input):
+            process_input(user_input)
+        else:
+            print("Invalid input, please try again.")
+            continue
+        if user_input in ['exit', 'quit']:
+            print("Exiting game...")
+            break
 
-    def validate_input(self, action):
-        return action in self.valid_actions
+def validate_input(user_input):
+    valid_commands = ['move', 'attack', 'defend', 'quit', 'exit']
+    return user_input in valid_commands
 
-    def process_action(self, action):
-        if not self.validate_input(action):
-            raise ValueError(f'Invalid action: {action}')
-        if action == 'attack':
-            self.score += random.randint(5, 10)
-            print(f'You attacked! Score: {self.score}')
-        elif action == 'defend':
-            self.player_health -= random.randint(1, 5)
-            print(f'You defended! Health: {self.player_health}')
-        elif action == 'heal':
-            self.player_health += random.randint(5, 15)
-            print(f'You healed! Health: {self.player_health}')
-
-    def main_loop(self):
-        while self.player_health > 0:
-            action = input('Enter your action (attack, defend, heal): ').strip().lower()
-            try:
-                self.process_action(action)
-            except ValueError as ve:
-                print(ve)
-        print('Game Over!')
+def process_input(user_input):
+    if user_input == 'move':
+        print("You move forward.")
+    elif user_input == 'attack':
+        print("You attack your enemy.")
+    elif user_input == 'defend':
+        print("You brace for an attack.")
+    else:
+        print("Command not recognized.")
 
 if __name__ == '__main__':
-    game = Game()
-    game.main_loop()
+    game_loop()
