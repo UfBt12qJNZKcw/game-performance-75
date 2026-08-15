@@ -1,54 +1,36 @@
-from typing import List, Dict
+import json
+import random
 
 class GameProcessor:
-    """Class to handle game data processing."""
+    def __init__(self):
+        self.players = []
 
-    def __init__(self, game_data: List[Dict[str, str]]) -> None:
-        """Initialize the GameProcessor with game data.
+    def add_player(self, player):
+        if not isinstance(player, str) or not player:
+            raise ValueError('Player name must be a non-empty string.')
+        self.players.append(player)
 
-        Args:
-            game_data (List[Dict[str, str]]): List of games with attributes.
-        """
-        self.game_data = game_data
+    def process_action(self, action):
+        valid_actions = ['run', 'jump', 'shoot']
+        if action not in valid_actions:
+            raise ValueError(f'Invalid action: {action}. Valid actions are: {valid_actions}')
+        # Randomly simulate success or failure
+        success = random.choice([True, False])
+        if not success:
+            raise RuntimeError('Action processing failed unexpectedly.')
+        return f'Action {action} processed successfully.'
 
-    def filter_games(self, criterion: str) -> List[Dict[str, str]]:
-        """Filter games based on a given criterion.
-
-        Args:
-            criterion (str): The attribute to filter games by.
-
-        Returns:
-            List[Dict[str, str]]: Filtered list of games.
-        """
-        return [game for game in self.game_data if game['genre'] == criterion]
-
-    def sort_games(self, key: str) -> List[Dict[str, str]]:
-        """Sort games based on a specified key.
-
-        Args:
-            key (str): The attribute to sort games by.
-
-        Returns:
-            List[Dict[str, str]]: Sorted list of games.
-        """
-        return sorted(self.game_data, key=lambda game: game[key])
-
-    def game_summary(self) -> str:
-        """Generate a summary of all games.
-
-        Returns:
-            str: Summary string of all games.
-        """
-        return '\n'.join([f"{game['title']} - {game['genre']}" for game in self.game_data])
+    def get_player_stats(self):
+        if not self.players:
+            raise IndexError('No players available to get stats.')
+        return {player: random.randint(1, 100) for player in self.players}
 
 # Example usage
 if __name__ == '__main__':
-    sample_data = [
-        {'title': 'Game A', 'genre': 'RPG'},
-        {'title': 'Game B', 'genre': 'FPS'},
-        {'title': 'Game C', 'genre': 'RPG'},
-    ]
-    processor = GameProcessor(sample_data)
-    print(processor.game_summary())
-    print(processor.filter_games('RPG'))
-    print(processor.sort_games('title'))
+    processor = GameProcessor()
+    try:
+        processor.add_player('Alice')
+        print(processor.process_action('jump'))
+        print(processor.get_player_stats())
+    except (ValueError, RuntimeError, IndexError) as e:
+        print(f'Error: {e}')
