@@ -1,32 +1,31 @@
-import random
 import sys
-
-def game_loop():
-    print("Welcome to the game! Please enter your commands.")
-    while True:
-        user_input = input("> ").strip().lower()
-        if validate_input(user_input):
-            process_input(user_input)
-        else:
-            print("Invalid input, please try again.")
-            continue
-        if user_input in ['exit', 'quit']:
-            print("Exiting game...")
-            break
-
-def validate_input(user_input):
-    valid_commands = ['move', 'attack', 'defend', 'quit', 'exit']
-    return user_input in valid_commands
+import random
 
 def process_input(user_input):
-    if user_input == 'move':
-        print("You move forward.")
-    elif user_input == 'attack':
-        print("You attack your enemy.")
-    elif user_input == 'defend':
-        print("You brace for an attack.")
-    else:
-        print("Command not recognized.")
+    if not user_input.isdigit():
+        raise ValueError("Input must be a number")
+    value = int(user_input)
+    if value < 1 or value > 100:
+        raise ValueError("Input must be between 1 and 100")
+    return value
+
+def main_loop():
+    while True:
+        user_input = input("Enter a number (1-100) or 'exit' to quit: ")
+        if user_input.lower() == 'exit':
+            print("Exiting game.")
+            break
+        try:
+            valid_number = process_input(user_input)
+            print(f"You entered: {valid_number}")
+            # Simulate game processing with the valid number
+            game_result = random.randint(1, 100)
+            if valid_number == game_result:
+                print("Congratulations! You guessed it!")
+            else:
+                print(f"Sorry, the correct number was {game_result}.")
+        except ValueError as e:
+            print(e)
 
 if __name__ == '__main__':
-    game_loop()
+    main_loop()
