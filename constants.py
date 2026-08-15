@@ -1,17 +1,32 @@
-VALIDATION_CRITERIA = {'min_age': 13, 'max_age': 100}
+FPS_LIMIT = 60
 
-ALLOWED_GAMES = ['Fortnite', 'Apex Legends', 'Dota 2', 'League of Legends']
+# Screen dimensions
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
 
-GAME_SETTINGS = {
-    'graphics_quality': ['low', 'medium', 'high', 'ultra'],
-    'fullscreen': [True, False],
-    'volume': range(0, 101)
-}
+# Color constants
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 
-# Constants for player actions
-PLAYER_ACTIONS = {
-    'move_left': 'A',
-    'move_right': 'D',
-    'jump': 'SPACE',
-    'shoot': 'LEFT_MOUSE'
-}
+# Game settings
+DEFAULT_FONT = 'Arial'
+FONT_SIZE = 24
+
+# Key bindings
+KEY_UP = 'w'
+KEY_DOWN = 's'
+KEY_LEFT = 'a'
+KEY_RIGHT = 'd'
+
+# Game states
+STATE_MENU = 'menu'
+STATE_PLAYING = 'playing'
+STATE_PAUSED = 'paused'
+STATE_GAME_OVER = 'game_over'
+
+# Misc
+PLAYER_INITIAL_LIVES = 3
+ENEMY_SPAWN_RATE = 0.5
