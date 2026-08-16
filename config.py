@@ -1,38 +1,24 @@
 import json
+import os
 
 class ConfigLoader:
-    DEFAULTS = {
-        'screen_resolution': '1920x1080',
-        'fullscreen': False,
-        'volume': 75,
-        'language': 'en'
-    }
-
-    def __init__(self, config_file):
-        self.config_file = config_file
-        self.config = self.DEFAULTS.copy()
-        self.load_config()
+    def __init__(self, default_config_path, user_config_path):
+        self.default_config_path = default_config_path
+        self.user_config_path = user_config_path
+        self.config = self.load_config()
 
     def load_config(self):
-        try:
-            with open(self.config_file, 'r') as f:
-                user_config = json.load(f)
-                self.config.update(user_config)
-        except FileNotFoundError:
-            print(f'Specified config file {self.config_file} not found, using defaults.')
-        except json.JSONDecodeError:
-            print('Error reading the config file, using defaults.')
+        default_config = self.load_json(self.default_config_path)
+        user_config = self.load_json(self.user_config_path) if os.path.exists(self.user_config_path) else {}
+        return {**default_config, **user_config}
 
-    def get(self, key):
-        return self.config.get(key, None)
+    def load_json(self, path):
+        with open(path, 'r') as f:
+            return json.load(f)
 
-    def set(self, key, value):
-        self.config[key] = value
-
-    def save(self):
-        with open(self.config_file, 'w') as f:
-            json.dump(self.config, f, indent=4)
+    def get(self, key, default=None):
+        return self.config.get(key, default)
 
 # Example usage:
-# config_loader = ConfigLoader('config.json')
-# print(config_loader.get('volume'))
+# loader = ConfigLoader('default_config.json', 'user_config.json')
+# some_value = loader.get('some_key', 'default_value')
