@@ -1,34 +1,30 @@
-import time
-import random
+class GameError(Exception):
+    """Base class for game-related exceptions."""
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
 
-class NetworkError(Exception):
-    pass
+class LevelNotFoundError(GameError):
+    """Exception raised when a game level is not found."""
+    def __init__(self, level_id):
+        super().__init__(f'Level {level_id} does not exist.')
+        self.level_id = level_id
 
-class Retry:
-    def __init__(self, max_attempts=3, base_delay=1, backoff_factor=2):
-        self.max_attempts = max_attempts
-        self.base_delay = base_delay
-        self.backoff_factor = backoff_factor
+class InvalidPlayerActionError(GameError):
+    """Exception raised for invalid actions by players."""
+    def __init__(self, action):
+        super().__init__(f'Action {action} is not valid.')
+        self.action = action
 
-    def execute(self, func, *args, **kwargs):
-        attempts = 0
-        while attempts < self.max_attempts:
-            try:
-                return func(*args, **kwargs)
-            except NetworkError as e:
-                attempts += 1
-                wait_time = self.base_delay * (self.backoff_factor ** (attempts - 1))
-                print(f"Attempt {attempts} failed: {e}. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-        raise NetworkError(f"All {self.max_attempts} attempts failed.")
+class ConnectionError(GameError):
+    """Exception raised for connection issues."""
+    def __init__(self, details):
+        super().__init__(f'Connection failed: {details}')
+        self.details = details
 
-# Example usage:
-def mock_network_operation(success_rate=0.5):
-    if random.random() > success_rate:
-        raise NetworkError("Network operation failed")
-    return "Network operation succeeded"
+class GameTimeoutError(GameError):
+    """Exception raised when a game operation times out."""
+    def __init__(self, timeout):
+        super().__init__(f'Operation timed out after {timeout} seconds.')
+        self.timeout = timeout
 
-if __name__ == '__main__':
-    retry = Retry(max_attempts=5)
-    result = retry.execute(mock_network_operation)
-    print(result)
