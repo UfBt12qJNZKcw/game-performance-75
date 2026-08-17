@@ -1,27 +1,43 @@
-import logging
+import time
 import os
+import json
 
-class PerformanceLogger:
-    def __init__(self, log_file='performance.log'):
-        self.logger = logging.getLogger('PerformanceLogger')
-        self.logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(os.path.join(os.getcwd(), log_file))
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+class Logger:
+    def __init__(self, log_file='game.log'):
+        self.log_file = log_file
+        self.start_time = time.time()
+        self.ensure_log_file_exists()
 
-    def log_metric(self, metric_name, value, context=''):
-        self.logger.info(f'{metric_name}: {value} | Context: {context}')
-        
-    def log_error(self, error_message, context=''):
-        self.logger.error(f'Error: {error_message} | Context: {context}') 
+    def ensure_log_file_exists(self):
+        if not os.path.exists(self.log_file):
+            with open(self.log_file, 'w') as f:
+                f.write(json.dumps([]))
 
-    def log_warning(self, warning_message, context=''):
-        self.logger.warning(f'Warning: {warning_message} | Context: {context}') 
+    def log(self, message):
+        elapsed_time = time.time() - self.start_time
+        log_entry = {'time': elapsed_time, 'message': message}
+        self.write_log(log_entry)
 
-performance_logger = PerformanceLogger()
+    def write_log(self, log_entry):
+        with open(self.log_file, 'r+') as f:
+            logs = json.load(f)
+            logs.append(log_entry)
+            f.seek(0)
+            json.dump(logs, f)
 
-# Example of logging performance metrics
-performance_logger.log_metric('FPS', 60, 'Main Game Loop')
-performance_logger.log_warning('High Latency Detected', 'Network Module')
-performance_logger.log_error('Failed to load texture', 'Asset Loader')
+    def get_logs(self):
+        with open(self.log_file, 'r') as f:
+            return json.load(f)
+
+    def clear_logs(self):
+        with open(self.log_file, 'w') as f:
+            f.write(json.dumps([]))
+
+logger = Logger()  # Global logger instance
+logger.log('Game started')
+
+# Example usage
+if __name__ == '__main__':
+    logger.log('Initializing game components')
+    logs = logger.get_logs()
+    print(logs)
