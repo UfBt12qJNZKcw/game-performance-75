@@ -1,36 +1,33 @@
-import json
-import logging
+import random
+import math
 
-class GameError(Exception):
-    pass
 
-class Game:
-    def __init__(self):
-        self.state = 'initialized'
-        self.players = []
+def generate_random_position(bounds):
+    x = random.randint(bounds['x_min'], bounds['x_max'])
+    y = random.randint(bounds['y_min'], bounds['y_max'])
+    return (x, y)
 
-    def add_player(self, player_name):
-        if not isinstance(player_name, str) or not player_name:
-            logging.error('Invalid player name provided')
-            raise GameError('Player name must be a non-empty string')
-        self.players.append(player_name)
-        logging.info(f'Player {player_name} added successfully')
 
-    def remove_player(self, player_name):
-        try:
-            self.players.remove(player_name)
-            logging.info(f'Player {player_name} removed successfully')
-        except ValueError:
-            logging.warning(f'Player {player_name} not found')
-            raise GameError('Player not found')
+def calculate_distance(point_a, point_b):
+    return math.sqrt((point_b[0] - point_a[0]) ** 2 + (point_b[1] - point_a[1]) ** 2)
 
-    def start_game(self):
-        if len(self.players) < 2:
-            logging.error('Not enough players to start the game')
-            raise GameError('At least 2 players are required')
-        self.state = 'started'
-        logging.info('Game has started')
 
-    def to_json(self):
-        return json.dumps({'state': self.state, 'players': self.players})
+def clamp(value, min_value, max_value):
+    return max(min_value, min(value, max_value))
 
+
+def interpolate(start, end, t):
+    return start + (end - start) * t
+
+
+def choose_random_item(items):
+    return random.choice(items)
+
+
+def shuffle_list(items):
+    random.shuffle(items)
+    return items
+
+
+def print_vector(vector):
+    print(f'Vector: x={vector[0]}, y={vector[1]}')
