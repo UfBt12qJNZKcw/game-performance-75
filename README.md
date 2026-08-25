@@ -1,47 +1,44 @@
-# Game Performance 75
+# game-performance-75
 
-Game Performance 75 is a Python-based utility designed to optimize gaming performance on various platforms. By analyzing system metrics and in-game conditions, this tool provides actionable insights to enhance frame rates and reduce latency, ensuring a smoother gaming experience.
+game-performance-75 is a Python library that profiles game loops to diagnose performance issues and maintain stable frame rates. It focuses on helping developers reach and sustain 75 FPS in their Python-based games through targeted optimizations.
 
 ## Features
 
-- **Comprehensive Performance Metrics**: Track and analyze CPU, GPU, and memory usage in real-time to identify bottlenecks and performance issues.
-- **Customizable Settings**: Tailor performance thresholds and alerts to meet your specific gaming needs and preferences.
-- **Real-time Optimization Suggestions**: Receive automated recommendations based on current system performance and game settings to boost overall efficiency.
-- **User-friendly Interface**: Enjoy an intuitive command-line interface to easily navigate and implement optimizations with minimal setup.
+- Precise frame timing measurement with support for variable refresh rates
+- Identification of expensive functions in the game loop using built-in profilers
+- Memory allocation tracking to spot leaks during extended play sessions
+- Generation of visual reports including FPS graphs and bottleneck heatmaps
 
 ## Installation
 
-To get started with Game Performance 75, clone this repository and install the required dependencies:
+Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/YourUsername/game-performance-75.git
+git clone https://github.com/Developer/game-performance-75.git
 cd game-performance-75
 pip install -r requirements.txt
 ```
 
-## Basic Usage
+## Usage
 
-Once installed, you can run the application using the following command:
+Add profiling to your game like this:
 
-```bash
-python main.py
+```python
+from game_performance_75 import GameProfiler
+
+profiler = GameProfiler(target_fps=75)
+profiler.begin_session()
+
+# Main game loop
+while True:
+    profiler.frame_start()
+    # Update and render
+    profiler.frame_end()
+
+profiler.end_session()
+profiler.export_report("report.html")
 ```
-
-The program will automatically analyze your system's performance and provide suggestions for optimization. For example, here’s a simple command to view current performance metrics:
-
-```bash
-python main.py --metrics
-```
-
-To customize your settings for a specific game, use:
-
-```bash
-python main.py --set-config path/to/config.json
-```
-
-Utilize these tools to refine your gaming setup, maximize your performance, and enjoy an unbeatable gaming experience!
 
 ## License
 
-![MIT License](https://img.shields.io/badge/license-MIT-green.svg)  
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
