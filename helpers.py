@@ -1,33 +1,37 @@
-import random
-import math
+import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
+class GamePerformanceLogger:
+    def __init__(self, name: str = "game-performance-75"):
+        self.name = name
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(logging.INFO)
+        self.metrics = []
+        self._configure_rotating_handlers()
 
-def generate_random_position(bounds):
-    x = random.randint(bounds['x_min'], bounds['x_max'])
-    y = random.randint(bounds['y_min'], bounds['y_max'])
-    return (x, y)
+    def _configure_rotating_handlers(self):
+        log_dir = Path("game_logs")
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / f"{self.name}.log"
+        handler = RotatingFileHandler(
+            log_file, maxBytes=10485760, backupCount=5
+        )
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(message)s"
+        ))
+        self.logger.addHandler(handler)
 
+    def log(self, message: str, level: str = "info"):
+        log_func = getattr(self.logger, level, self.logger.info)
+        log_func(message)
+        if level == "info":
+            self.metrics.append(message)
+            if len(self.metrics) > 200:
+                self.metrics.pop(0)
 
-def calculate_distance(point_a, point_b):
-    return math.sqrt((point_b[0] - point_a[0]) ** 2 + (point_b[1] - point_a[1]) ** 2)
+    def get_recent_metrics(self):
+        return self.metrics[:]
 
-
-def clamp(value, min_value, max_value):
-    return max(min_value, min(value, max_value))
-
-
-def interpolate(start, end, t):
-    return start + (end - start) * t
-
-
-def choose_random_item(items):
-    return random.choice(items)
-
-
-def shuffle_list(items):
-    random.shuffle(items)
-    return items
-
-
-def print_vector(vector):
-    print(f'Vector: x={vector[0]}, y={vector[1]}')
+def setup_logger():
+    return GamePerformanceLogger()
