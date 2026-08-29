@@ -1,60 +1,70 @@
-from typing import Any, Callable, Dict, List
-FPS_ERROR_CODE = 1001
-DIVISION_ERROR_CODE = 1002
-PLAYER_COUNT_ERROR_CODE = 1003
-FRAME_TIME_ERROR_CODE = 1004
-DEFAULT_FPS = 60
-MIN_FPS_THRESHOLD = 1
-MAX_LATENCY_MS = 500
-MIN_PLAYERS = 1
-MAX_PLAYERS = 128
-ERROR_HANDLERS: Dict[int, Callable[[Any], Any]] = {}
-def register_handler(code: int, handler: Callable[[Any], Any]) -> None:
-    ERROR_HANDLERS[code] = handler
-def _handle_negative_fps(value: float) -> float:
+import time
+import random
+
+MAX_RETRIES = 5
+BASE_DELAY = 1.0
+MAX_DELAY = 30.0
+ERROR_TYPES = (ConnectionError, TimeoutError)
+
+def exponential_backoff(attempt):
+    delay = BASE_DELAY * (2 ** attempt)
+    return min(delay, MAX_DELAY)
+
+def retry_network_operation(operation, *args, **kwargs):
+    for attempt in range(MAX_RETRIES):
+        try:
+            return operation(*args, **kwargs)
+        except ERROR_TYPES as error:
+            if attempt == MAX_RETRIES - 1:
+                raise
+            delay = exponential_backoff(attempt)
+            performance_factor = random.uniform(0.8, 1.2)
+            jitter = random.uniform(0, 0.5)
+            actual_delay = delay * performance_factor + jitter
+            time.sleep(actual_delay)
+    return None
+
+def retry_batch_network_ops(operations):
+    results = []
+    for op in operations:
+        try:
+            res = retry_network_operation(op)
+            results.append(res)
+        except Exception:
+            results.append(None)
+    return results
+
+def advanced_retry(operation, max_tries=MAX_RETRIES):
+    tries = 0
+    while tries < max_tries:
+        tries += 1
+        try:
+            return operation()
+        except ERROR_TYPES:
+            if tries >= max_tries:
+                break
+            if tries == 1:
+                delay = BASE_DELAY
+            elif tries == 2:
+                delay = BASE_DELAY * 2
+            else:
+                delay = BASE_DELAY * (tries * 1.5)
+            time.sleep(min(delay, MAX_DELAY))
+    raise ConnectionError("Max retries exceeded in game network")
+
+def example_game_api_call(url):
+    if random.random() > 0.3:
+        raise TimeoutError("Game server not responding")
+    return "Game data received"
+
+def recursive_retry(operation, attempt=0, max_attempts=MAX_RETRIES):
+    if attempt >= max_attempts:
+        raise ConnectionError("Max retries exceeded")
     try:
-        return float(abs(value)) if value < MIN_FPS_THRESHOLD else float(value)
-    except Exception:
-        return float(DEFAULT_FPS)
-register_handler(FPS_ERROR_CODE, _handle_negative_fps)
-def _handle_division_by_zero(value: float) -> float:
-    try:
-        return float(value) if value != 0 else float(DEFAULT_FPS)
-    except Exception:
-        return float(DEFAULT_FPS)
-register_handler(DIVISION_ERROR_CODE, _handle_division_by_zero)
-def _handle_invalid_player_count(count: int) -> int:
-    try:
-        if count < MIN_PLAYERS: return MIN_PLAYERS
-        if count > MAX_PLAYERS: return MAX_PLAYERS
-        return count
-    except (TypeError, ValueError):
-        return MIN_PLAYERS
-register_handler(PLAYER_COUNT_ERROR_CODE, _handle_invalid_player_count)
-def _handle_frame_time_overflow(time_ms: float) -> float:
-    try:
-        if time_ms > MAX_LATENCY_MS: return float(MAX_LATENCY_MS)
-        return float(max(time_ms, 0))
-    except Exception:
-        return float(MAX_LATENCY_MS)
-register_handler(FRAME_TIME_ERROR_CODE, _handle_frame_time_overflow)
-def handle_edge_case(error_code: int, value: Any) -> Any:
-    if error_code not in ERROR_HANDLERS:
-        return float(DEFAULT_FPS) if isinstance(value, (int, float)) else value
-    try:
-        return ERROR_HANDLERS[error_code](value)
-    except Exception:
-        return float(DEFAULT_FPS) if isinstance(value, (int, float)) else value
-def calculate_fps_performance(frame_times: List[float], num_players: int) -> float:
-    try:
-        safe_players = handle_edge_case(PLAYER_COUNT_ERROR_CODE, num_players)
-        if safe_players < 1: safe_players = 1
-        if len(frame_times) == 0: return float(DEFAULT_FPS)
-        processed = [handle_edge_case(FRAME_TIME_ERROR_CODE, t) for t in frame_times]
-        total = sum(processed)
-        avg_time = total / len(processed) if total > 0 else 1000.0 / DEFAULT_FPS
-        raw_fps = 1000 / avg_time if avg_time > 0 else float(DEFAULT_FPS)
-        fps = handle_edge_case(FPS_ERROR_CODE, raw_fps)
-        return handle_edge_case(DIVISION_ERROR_CODE, fps)
-    except Exception:
-        return float(DEFAULT_FPS)
+        return operation()
+    except ERROR_TYPES:
+        delay = exponential_backoff(attempt)
+        performance_factor = random.uniform(0.8, 1.2)
+        jitter = random.uniform(0, 0.5)
+        time.sleep(delay * performance_factor + jitter)
+        return recursive_retry(operation, attempt + 1, max_attempts)
