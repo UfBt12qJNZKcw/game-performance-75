@@ -1,30 +1,37 @@
 import json
-import os
+from pathlib import Path
+from typing import Any, Dict
 
-class ConfigLoader:
-    def __init__(self, default_config_path):
-        self.default_config_path = default_config_path
-        self.config = self.load_defaults()
+class GameConfig:
+    DEFAULT_SETTINGS = {
+        "fps_limit": 144,
+        "vsync": True,
+        "resolution": [1920, 1080],
+        "graphics_preset": "ultra"
+    }
 
-    def load_defaults(self):
-        if not os.path.exists(self.default_config_path):
-            raise FileNotFoundError(f'Default config not found at {self.default_config_path}')
-        with open(self.default_config_path, 'r') as f:
-            return json.load(f)
+    def __init__(self, config_path: str = "settings.json"):
+        self.path = Path(config_path)
+        self.data = self._load_or_default()
 
-    def get(self, key, default=None):
-        return self.config.get(key, default)
+    def _load_or_default(self) -> Dict[str, Any]:
+        if not self.path.exists():
+            return self.DEFAULT_SETTINGS.copy()
+        try:
+            with open(self.path, 'r') as f:
+                return {**self.DEFAULT_SETTINGS, **json.load(f)}
+        except (json.JSONDecodeError, OSError):
+            return self.DEFAULT_SETTINGS.copy()
 
-    def set(self, key, value):
-        self.config[key] = value
-        self.save_config()
+    def __getitem__(self, key: str) -> Any:
+        return self.data.get(key)
 
-    def save_config(self):
-        with open(self.default_config_path, 'w') as f:
-            json.dump(self.config, f, indent=4)
+    def save(self) -> None:
+        with open(self.path, 'w') as f:
+            json.dump(self.data, f, indent=4)
 
-# Usage example
-if __name__ == '__main__':
-    config_loader = ConfigLoader('default_config.json')
-    print(config_loader.get('some_setting', 'default_value'))
-    config_loader.set('new_setting', 'new_value')
+    def update(self, new_settings: Dict[str, Any]) -> None:
+        self.data.update(new_settings)
+        self.save()
+
+config = GameConfig()
