@@ -1,37 +1,54 @@
 import json
-from pathlib import Path
-from typing import Any, Dict
+import os
+from dataclasses import dataclass, field, fields
+from typing import Any, Dict, get_type_hints
 
+
+@dataclass
 class GameConfig:
-    DEFAULT_SETTINGS = {
-        "fps_limit": 144,
-        "vsync": True,
-        "resolution": [1920, 1080],
-        "graphics_preset": "ultra"
-    }
-
-    def __init__(self, config_path: str = "settings.json"):
-        self.path = Path(config_path)
-        self.data = self._load_or_default()
-
-    def _load_or_default(self) -> Dict[str, Any]:
-        if not self.path.exists():
-            return self.DEFAULT_SETTINGS.copy()
-        try:
-            with open(self.path, 'r') as f:
-                return {**self.DEFAULT_SETTINGS, **json.load(f)}
-        except (json.JSONDecodeError, OSError):
-            return self.DEFAULT_SETTINGS.copy()
+    target_fps: int = 144
+    render_scale: float = 1.0
+    v_sync: bool = False
+    thread_budget: int = 8
+    cache_dir: str = ".cache/textures"
+    flags: dict = field(default_factory=lambda: {"async_compute": True, "hdr": False})
 
     def __getitem__(self, key: str) -> Any:
-        return self.data.get(key)
+        return getattr(self, key)
 
-    def save(self) -> None:
-        with open(self.path, 'w') as f:
-            json.dump(self.data, f, indent=4)
+    def __or__(self, other: Dict[str, Any]) -> "GameConfig":
+        merged = {}
+        type_map = get_type_hints(self.__class__)
+        for f in fields(self):
+            val = other.get(f.name, getattr(self, f.name))
+            expected_type = type_map.get(f.name, type(val))
+            if isinstance(val, str) and expected_type is bool:
+                val = val.lower() in ("true", "1", "yes", "on")
+            elif not isinstance(val, expected_type) and expected_type in (int, float, str):
+                try:
+                    val = expected_type(val)
+                except (ValueError, TypeError):
+                    val = getattr(self, f.name)
+            merged[f.name] = val
+        return GameConfig(**merged)
 
-    def update(self, new_settings: Dict[str, Any]) -> None:
-        self.data.update(new_settings)
-        self.save()
 
-config = GameConfig()
+class ConfigLoader:
+    @staticmethod
+    def load(file_path: str = "settings.json", env_prefix: str = "GAME_PERF_") -> GameConfig:
+        config = GameConfig()
+        file_overrides = {}
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    file_overrides = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                file_overrides = {}
+
+        env_overrides = {}
+        for key, val in os.environ.items():
+            if key.startswith(env_prefix):
+                clean_key = key[len(env_prefix):].lower()
+                env_overrides[clean_key] = val
+
+        return config | file_overrides | env_overrides
