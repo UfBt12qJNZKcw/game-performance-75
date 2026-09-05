@@ -1,53 +1,35 @@
 import logging
 from logging.handlers import RotatingFileHandler
-import sys
 from pathlib import Path
-from datetime import datetime
-from functools import wraps
 
-class PerformanceRotatingHandler(RotatingFileHandler):
-    def doRollover(self):
-        super().doRollover()
-        rollover_time = datetime.now().isoformat()
-        with open(self.baseFilename, 'a') as log_file:
-            log_file.write(f"# Log rotated at {rollover_time} for game session\n")
-
-def setup_logger(log_name: str = "game_performance", max_size: int = 10485760, backups: int = 5) -> logging.Logger:
-    log_path = Path("logs")
-    log_path.mkdir(exist_ok=True)
-    logger = logging.getLogger("game-performance-75")
+def setup_game_logger(name: str = 'performance-75', log_dir: str = 'logs') -> logging.Logger:
+    path = Path(log_dir)
+    path.mkdir(exist_ok=True)
+    
+    logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    if not logger.handlers:
-        file_handler = PerformanceRotatingHandler(
-            log_path / f"{log_name}.log",
-            maxBytes=max_size,
-            backupCount=backups
-        )
-        file_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)s | %(message)s"
-        )
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.WARNING)
-        console_formatter = logging.Formatter("%(levelname)s: %(message)s")
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-    return logger
-
-def log_performance(logger: logging.Logger, fps: float, memory_mb: int, cpu_percent: float) -> None:
-    logger.info(
-        f"Performance: FPS={fps:.1f} Memory={memory_mb}MB CPU={cpu_percent:.1f}%"
+    
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)-8s | %(name)s | %(message)s',
+        datefmt='%H:%M:%S'
     )
 
-def performance_monitor(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        logger = setup_logger()
-        start_time = datetime.now()
-        result = func(*args, **kwargs)
-        elapsed = (datetime.now() - start_time).total_seconds() * 1000
-        logger.debug(f"{func.__name__} executed in {elapsed:.2f}ms")
-        return result
-    return wrapper
+    file_handler = RotatingFileHandler(
+        path / f'{name}.log', 
+        maxBytes=2*1024*1024, 
+        backupCount=5
+    )
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+    return logger
+
+if __name__ == '__main__':
+    log = setup_game_logger()
+    log.info('performance tracking engine initialized')
