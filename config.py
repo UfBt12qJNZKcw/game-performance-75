@@ -1,54 +1,33 @@
-import json
+from typing import Dict, Any, Final, Optional
 import os
-from dataclasses import dataclass, field, fields
-from typing import Any, Dict, get_type_hints
 
+# global performance tuning parameters for game-performance-75
+CACHE_SIZE: Final[int] = 1024 * 64
+ENGINE_MODE: Final[str] = os.getenv("GAME_MODE", "ultra_low_latency")
 
-@dataclass
+def get_performance_profiles(target_fps: int = 144) -> Dict[str, Any]:
+    """
+    calculates performance scaling profiles based on hardware headroom.
+
+    :param target_fps: desired refresh rate constant
+    :return: mapping of system settings to optimization parameters
+    """
+    profiles: Dict[str, Any] = {
+        "ultra_low_latency": {"buffer": 1, "threads": 8, "priority": "high"},
+        "balanced": {"buffer": 4, "threads": 4, "priority": "normal"},
+        "power_saver": {"buffer": 16, "threads": 2, "priority": "idle"}
+    }
+    return profiles.get(ENGINE_MODE, profiles["balanced"])
+
 class GameConfig:
-    target_fps: int = 144
-    render_scale: float = 1.0
-    v_sync: bool = False
-    thread_budget: int = 8
-    cache_dir: str = ".cache/textures"
-    flags: dict = field(default_factory=lambda: {"async_compute": True, "hdr": False})
+    """container for stateful game engine heuristics"""
+    def __init__(self, debug_mode: bool = False) -> None:
+        self.debug: bool = debug_mode
+        self.buffer_size: int = CACHE_SIZE
 
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def __or__(self, other: Dict[str, Any]) -> "GameConfig":
-        merged = {}
-        type_map = get_type_hints(self.__class__)
-        for f in fields(self):
-            val = other.get(f.name, getattr(self, f.name))
-            expected_type = type_map.get(f.name, type(val))
-            if isinstance(val, str) and expected_type is bool:
-                val = val.lower() in ("true", "1", "yes", "on")
-            elif not isinstance(val, expected_type) and expected_type in (int, float, str):
-                try:
-                    val = expected_type(val)
-                except (ValueError, TypeError):
-                    val = getattr(self, f.name)
-            merged[f.name] = val
-        return GameConfig(**merged)
-
-
-class ConfigLoader:
-    @staticmethod
-    def load(file_path: str = "settings.json", env_prefix: str = "GAME_PERF_") -> GameConfig:
-        config = GameConfig()
-        file_overrides = {}
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    file_overrides = json.load(f)
-            except (json.JSONDecodeError, OSError):
-                file_overrides = {}
-
-        env_overrides = {}
-        for key, val in os.environ.items():
-            if key.startswith(env_prefix):
-                clean_key = key[len(env_prefix):].lower()
-                env_overrides[clean_key] = val
-
-        return config | file_overrides | env_overrides
+    def get_latency_budget(self) -> float:
+        """
+        returns float representing the remaining frame time budget
+        in milliseconds based on internal system ticks.
+        """
+        return 1000.0 / 144.0 if not self.debug else 1000.0 / 60.0
