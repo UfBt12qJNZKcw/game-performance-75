@@ -1,35 +1,33 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
 
-def setup_game_logger(name: str = 'performance-75', log_dir: str = 'logs') -> logging.Logger:
-    path = Path(log_dir)
-    path.mkdir(exist_ok=True)
-    
+def get_performance_logger(name: str = 'game-performance-75') -> logging.Logger:
+    """Initializes a logger with byte-sized rotation for performance tracking."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
-    
-    formatter = logging.Formatter(
-        '[%(asctime)s] %(levelname)-8s | %(name)s | %(message)s',
-        datefmt='%H:%M:%S'
-    )
-
-    file_handler = RotatingFileHandler(
-        path / f'{name}.log', 
-        maxBytes=2*1024*1024, 
-        backupCount=5
-    )
-    file_handler.setFormatter(formatter)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
 
     if not logger.handlers:
+        formatter = logging.Formatter(
+            '[%(asctime)s] [%(levelname)s] [%(name)s] >> %(message)s',
+            datefmt='%H:%M:%S'
+        )
+
+        # Rotating file handler: 5MB per file, keep 3 backups
+        file_handler = RotatingFileHandler(
+            'performance.log', 
+            maxBytes=5 * 1024 * 1024, 
+            backupCount=3
+        )
+        file_handler.setFormatter(formatter)
+        
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
-        
+
     return logger
 
-if __name__ == '__main__':
-    log = setup_game_logger()
-    log.info('performance tracking engine initialized')
+# Instantiate singleton for global performance tracing
+perf_log = get_performance_logger()
