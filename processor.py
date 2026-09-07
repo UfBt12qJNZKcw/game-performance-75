@@ -1,37 +1,29 @@
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Final
+
+CACHE_LIMIT: Final[int] = 1024
 
 class FrameProcessor:
-    """Calculates frame jitter and performance overhead metrics for gaming engines."""
+    """Handles performance-heavy frame interpolation for game-performance-75."""
+    
+    def __init__(self, buffer_size: int = CACHE_LIMIT) -> None:
+        self._buffer: List[float] = []
+        self._buffer_size: int = buffer_size
 
-    def __init__(self, target_fps: int = 60) -> None:
-        self.target_delta: float = 1.0 / target_fps
-        self.history: List[float] = []
-
-    def process_frame_times(self, times: List[float]) -> Dict[str, Union[float, str]]:
-        """Analyzes raw frame times to return performance health status."""
-        if not times:
-            return {"status": "idle", "average_jitter": 0.0}
-
-        avg_time: float = sum(times) / len(times)
-        jitter: float = abs(avg_time - self.target_delta)
+    def process_telemetry(self, raw_data: Dict[str, Union[int, float]]) -> float:
+        """Calculates jitter-corrected delta time from telemetry frames."""
+        raw_delta = float(raw_data.get("dt", 0.016))
+        self._buffer.append(raw_delta)
         
-        status: str = "stable" if jitter < 0.002 else "unstable"
-        
-        self.history.append(jitter)
-        
-        return {
-            "status": status,
-            "average_jitter": round(jitter, 6),
-            "samples": len(times)
-        }
+        if len(self._buffer) > self._buffer_size:
+            self._buffer.pop(0)
+            
+        return sum(self._buffer) / len(self._buffer)
 
-    def get_performance_trend(self) -> Optional[float]:
-        """Computes moving average of jitter for telemetry logging."""
-        if not self.history:
-            return None
-        return sum(self.history[-10:]) / len(self.history[-10:])
+    def purge_stale_metrics(self) -> None:
+        """Wipes the buffer to reset performance tracking state."""
+        self._buffer.clear()
 
-if __name__ == "__main__":
-    proc = FrameProcessor()
-    report = proc.process_frame_times([0.016, 0.017, 0.0165])
-    print(f"Engine Status: {report['status']}")
+    @property
+    def is_saturated(self) -> bool:
+        """Determines if the telemetry buffer has reached capacity."""
+        return len(self._buffer) >= self._buffer_size
