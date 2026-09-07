@@ -1,28 +1,37 @@
-from typing import List, Dict, Union, Callable
+from typing import List, Dict, Union, Optional
 
 class FrameProcessor:
-    """Engine-level utility for frame-budget calculation in game-performance-75."""
+    """Calculates frame jitter and performance overhead metrics for gaming engines."""
 
     def __init__(self, target_fps: int = 60) -> None:
-        self.target_frame_time: float = 1000.0 / target_fps
+        self.target_delta: float = 1.0 / target_fps
+        self.history: List[float] = []
 
-    def analyze_latency(self, timestamps: List[float]) -> Dict[str, Union[float, str]]:
-        """Calculate frame delta averages with jitter detection."""
-        if not timestamps:
-            return {"avg_delta": 0.0, "status": "idle"}
+    def process_frame_times(self, times: List[float]) -> Dict[str, Union[float, str]]:
+        """Analyzes raw frame times to return performance health status."""
+        if not times:
+            return {"status": "idle", "average_jitter": 0.0}
+
+        avg_time: float = sum(times) / len(times)
+        jitter: float = abs(avg_time - self.target_delta)
         
-        deltas = [timestamps[i] - timestamps[i-1] for i in range(1, len(timestamps))]
-        avg_delta = sum(deltas) / len(deltas)
+        status: str = "stable" if jitter < 0.002 else "unstable"
+        
+        self.history.append(jitter)
         
         return {
-            "avg_delta": round(avg_delta, 4),
-            "status": "optimal" if avg_delta <= self.target_frame_time else "throttled"
+            "status": status,
+            "average_jitter": round(jitter, 6),
+            "samples": len(times)
         }
 
-    def batch_process(self, data: List[Dict[str, float]], filter_func: Callable[[float], bool]) -> List[float]:
-        """Filter and transform raw frame performance metrics."""
-        return [d['ms'] for d in data if filter_func(d['ms'])]
+    def get_performance_trend(self) -> Optional[float]:
+        """Computes moving average of jitter for telemetry logging."""
+        if not self.history:
+            return None
+        return sum(self.history[-10:]) / len(self.history[-10:])
 
-    def calculate_throughput(self, frames: int, duration_sec: float) -> float:
-        """Determine effective throughput normalized to real-time."""
-        return float(frames) / duration_sec if duration_sec > 0 else 0.0
+if __name__ == "__main__":
+    proc = FrameProcessor()
+    report = proc.process_frame_times([0.016, 0.017, 0.0165])
+    print(f"Engine Status: {report['status']}")
