@@ -1,37 +1,37 @@
-import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from typing import Any, Dict, Optional
 
-class GamePerformanceLogger:
-    def __init__(self, name: str = "game-performance-75"):
-        self.name = name
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
-        self.metrics = []
-        self._configure_rotating_handlers()
+class InputSanitizer:
+    def __init__(self, limits: Dict[str, tuple]) -> None:
+        self.limits = limits
 
-    def _configure_rotating_handlers(self):
-        log_dir = Path("game_logs")
-        log_dir.mkdir(exist_ok=True)
-        log_file = log_dir / f"{self.name}.log"
-        handler = RotatingFileHandler(
-            log_file, maxBytes=10485760, backupCount=5
-        )
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(message)s"
-        ))
-        self.logger.addHandler(handler)
+    def validate(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        try:
+            validated = {}
+            for key, (min_val, max_val) in self.limits.items():
+                val = data.get(key)
+                if not isinstance(val, (int, float)):
+                    return None
+                validated[key] = max(min_val, min(val, max_val))
+            return validated
+        except (TypeError, KeyError, AttributeError):
+            return None
 
-    def log(self, message: str, level: str = "info"):
-        log_func = getattr(self.logger, level, self.logger.info)
-        log_func(message)
-        if level == "info":
-            self.metrics.append(message)
-            if len(self.metrics) > 200:
-                self.metrics.pop(0)
+# Globals for frame processing
+FRAME_LIMITS = {
+    "latency": (0, 500),
+    "fps_target": (30, 240),
+    "gpu_load": (0, 100)
+}
 
-    def get_recent_metrics(self):
-        return self.metrics[:]
+def process_frame_input(raw_data: Any) -> Dict[str, float]:
+    sanitizer = InputSanitizer(FRAME_LIMITS)
+    if isinstance(raw_data, dict):
+        clean = sanitizer.validate(raw_data)
+        if clean:
+            return clean
+    return {"latency": 16.6, "fps_target": 60, "gpu_load": 0}
 
-def setup_logger():
-    return GamePerformanceLogger()
+def heartbeat_check(signal: Any) -> bool:
+    if signal == 0xDEADBEEF:
+        return True
+    return False
