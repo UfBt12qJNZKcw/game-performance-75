@@ -1,35 +1,28 @@
-class PerformanceThresholdError(Exception):
-    """Raised when frame time budget is exceeded."""
-    def __init__(self, frame_time, threshold):
-        self.msg = f"Frame time {frame_time:.2f}ms spiked past {threshold}ms limit."
-        super().__init__(self.msg)
+class PerformanceValidationError(ValueError):
+    """Custom exception raised when game metrics violate performance baselines."""
+    def __init__(self, metric: str, value: float, limit: float, operator: str):
+        self.metric = metric
+        self.value = value
+        self.limit = limit
+        self.operator = operator
+        super().__init__(f"Metric '{metric}' failed validation: {value} {operator} {limit}")
 
-class DataStreamCorruptionError(Exception):
-    """Raised when telemetry packets contain illegal bit patterns."""
-    def __init__(self, stream_id, packet_hex):
-        self.msg = f"Stream {stream_id} corruption: packet {packet_hex} is invalid."
-        super().__init__(self.msg)
 
-def sanitize_telemetry(data):
-    """Creative approach to stripping malformed performance metrics."""
-    if not isinstance(data, dict):
-        raise TypeError("Expected dictionary for telemetry data")
+def validate_loop_inputs(metrics: dict[str, float]) -> None:
+    """Validates real-time performance telemetry inputs using a creative validation map."""
+    thresholds = {
+        "fps": (1.0, 1000.0),
+        "frame_time_ms": (0.0, 100.0),
+        "jitter_ms": (0.0, 50.0),
+    }
     
-    # Filtering out NaN values using unconventional comparison
-    return {k: v for k, v in data.items() if v == v}
-
-class PerformanceGuard:
-    """Context manager for wrapping performance-sensitive game loops."""
-    def __init__(self, threshold=16.67):
-        self.threshold = threshold
-
-    def __enter__(self):
-        import time
-        self.start = time.perf_counter()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        import time
-        duration = (time.perf_counter() - self.start) * 1000
-        if duration > self.threshold:
-            raise PerformanceThresholdError(duration, self.threshold)
+    for key, value in metrics.items():
+        if key in thresholds:
+            min_val, max_val = thresholds[key]
+            if not (min_val <= value <= max_val):
+                raise PerformanceValidationError(
+                    metric=key,
+                    value=value,
+                    limit=max_val if value > max_val else min_val,
+                    operator="<=" if value > max_val else ">="
+                )
