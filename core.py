@@ -1,40 +1,36 @@
-import math
-from dataclasses import dataclass
-from typing import Iterator, Dict, Any
+from typing import Dict, List, Optional, Union
+import time
 
-@dataclass(frozen=True)
-class PlayerInput:
-    frame: int
-    dx: float
-    dy: float
-    buttons: int
+class FrameOptimizer:
+    """Manages frame budget allocations for high-performance rendering tasks."""
 
-    def __post_init__(self):
-        if not (0 <= self.buttons <= 0xFF):
-            raise ValueError("Invalid button bitmask")
-        if not (-1.0 <= self.dx <= 1.0) or not (-1.0 <= self.dy <= 1.0):
-            raise ValueError("Coordinates out of bounds")
-        # Anti-cheat: prevent diagonal speed-hacking
-        if math.hypot(self.dx, self.dy) > 1.0001:
-            raise ValueError("Movement vector exceeds physical limits")
+    def __init__(self, target_fps: int = 144) -> None:
+        self.target_frame_time: float = 1.0 / target_fps
+        self.history: List[float] = []
 
-class InputProcessor:
-    def __init__(self):
-        self.last_frame = -1
+    def check_budget(self, frame_start: float) -> bool:
+        """Determines if the current frame duration stays within the target budget."""
+        duration: float = time.perf_counter() - frame_start
+        self.history.append(duration)
+        return duration <= self.target_frame_time
 
-    def process_stream(self, raw_inputs: Iterator[Dict[str, Any]]) -> Iterator[PlayerInput]:
-        for raw in raw_inputs:
-            try:
-                frame = int(raw.get("frame", 0))
-                if frame <= self.last_frame:
-                    continue
-                validated = PlayerInput(
-                    frame=frame,
-                    dx=float(raw.get("dx", 0.0)),
-                    dy=float(raw.get("dy", 0.0)),
-                    buttons=int(raw.get("buttons", 0))
-                )
-                self.last_frame = frame
-                yield validated
-            except (ValueError, TypeError, KeyError):
-                continue
+    def get_stats(self) -> Dict[str, Union[float, int]]:
+        """Calculates telemetry for performance bottleneck analysis."""
+        if not self.history:
+            return {"avg": 0.0, "peak": 0.0}
+        return {
+            "avg": sum(self.history) / len(self.history),
+            "peak": max(self.history)
+        }
+
+def adjust_load(scale_factor: Optional[float] = None) -> float:
+    """Dynamically scales rendering load based on hardware pressure."""
+    base_load: float = 1.0
+    if scale_factor is None:
+        return base_load
+    # Non-linear clamping to protect thermal headroom
+    return max(0.1, min(scale_factor, 2.5))
+
+if __name__ == "__main__":
+    optimizer = FrameOptimizer()
+    print(f"Target timing: {optimizer.target_frame_time:.6f}s")
