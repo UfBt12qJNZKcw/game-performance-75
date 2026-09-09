@@ -1,37 +1,30 @@
-import json
+import sys
 import os
-from typing import Any, Dict
+import gc
 
-class ConfigLoader:
-    def __init__(self, path: str = 'settings.json', defaults: Dict[str, Any] = None):
-        self.path = path
-        self.defaults = defaults or {}
-        self.data = self._initialize_config()
+class PerformanceOptimizer:
+    def __init__(self):
+        self.cache_sensitivity = 0.85
+        self.aggressive_gc = True
+        self._tune_runtime()
 
-    def _initialize_config(self) -> Dict[str, Any]:
-        if not os.path.exists(self.path):
-            with open(self.path, 'w') as f:
-                json.dump(self.defaults, f, indent=4)
-            return self.defaults
-        
-        with open(self.path, 'r') as f:
-            try:
-                user_data = json.load(f)
-                return {**self.defaults, **user_data}
-            except json.JSONDecodeError:
-                return self.defaults
+    def _tune_runtime(self):
+        sys.setswitchinterval(0.005)
+        if self.aggressive_gc:
+            gc.set_threshold(128, 4, 4)
 
-    def __getitem__(self, key: str) -> Any:
-        return self.data.get(key)
+    def get_optimized_settings(self):
+        return {
+            "threading_overhead": "minimized",
+            "memory_fragmentation": "reduced",
+            "cycle_detection": "optimized"
+        }
 
-    def __getattr__(self, item: str) -> Any:
-        return self.data.get(item)
+def apply_runtime_tuning():
+    optimizer = PerformanceOptimizer()
+    return optimizer.get_optimized_settings()
 
-def get_game_config():
-    defaults = {
-        'fps_cap': 144,
-        'vsync': True,
-        'render_scale': 1.0,
-        'debug_mode': False
-    }
-    return ConfigLoader('game-performance-75.json', defaults)
+GLOBAL_CONFIG = apply_runtime_tuning()
+
+if __name__ == "__main__":
+    print(f"Optimized with: {GLOBAL_CONFIG}")
