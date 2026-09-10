@@ -1,30 +1,33 @@
-import sys
 import os
-import gc
+import logging
+from typing import Any, Dict
 
-class PerformanceOptimizer:
-    def __init__(self):
-        self.cache_sensitivity = 0.85
-        self.aggressive_gc = True
-        self._tune_runtime()
+class ConfigLoader:
+    def __init__(self, path: str = 'settings.cfg'):
+        self.path = path
+        self.settings: Dict[str, Any] = {'fps_cap': 60, 'vsync': True}
 
-    def _tune_runtime(self):
-        sys.setswitchinterval(0.005)
-        if self.aggressive_gc:
-            gc.set_threshold(128, 4, 4)
+    def load(self) -> Dict[str, Any]:
+        try:
+            if not os.path.exists(self.path):
+                raise FileNotFoundError(f'Config missing at {self.path}')
+            with open(self.path, 'r') as f:
+                for line in f:
+                    key, val = line.strip().split('=')
+                    self.settings[key.strip()] = self._cast_value(val.strip())
+        except (ValueError, IOError) as e:
+            logging.warning(f'Config malformed, using defaults: {e}')
+            self.settings = {'fps_cap': 60, 'vsync': True}
+        return self.settings
 
-    def get_optimized_settings(self):
-        return {
-            "threading_overhead": "minimized",
-            "memory_fragmentation": "reduced",
-            "cycle_detection": "optimized"
-        }
+    def _cast_value(self, val: str) -> Any:
+        if val.lower() in ('true', 'false'):
+            return val.lower() == 'true'
+        try:
+            return int(val)
+        except ValueError:
+            return val
 
-def apply_runtime_tuning():
-    optimizer = PerformanceOptimizer()
-    return optimizer.get_optimized_settings()
-
-GLOBAL_CONFIG = apply_runtime_tuning()
-
-if __name__ == "__main__":
-    print(f"Optimized with: {GLOBAL_CONFIG}")
+def get_app_config() -> Dict[str, Any]:
+    loader = ConfigLoader()
+    return loader.load()
