@@ -1,36 +1,37 @@
-from typing import Dict, List, Optional, Union
-import time
+import json
+import os
+from typing import Any, Dict
 
-class FrameOptimizer:
-    """Manages frame budget allocations for high-performance rendering tasks."""
+class ConfigLoader:
+    def __init__(self, defaults: Dict[str, Any], path: str = 'settings.json'):
+        self.path = path
+        self.data = defaults
+        self._load_from_disk()
 
-    def __init__(self, target_fps: int = 144) -> None:
-        self.target_frame_time: float = 1.0 / target_fps
-        self.history: List[float] = []
+    def _load_from_disk(self) -> None:
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, 'r') as f:
+                    loaded = json.load(f)
+                    self.data.update({k: v for k, v in loaded.items() if k in self.data})
+            except (json.JSONDecodeError, IOError):
+                pass
 
-    def check_budget(self, frame_start: float) -> bool:
-        """Determines if the current frame duration stays within the target budget."""
-        duration: float = time.perf_counter() - frame_start
-        self.history.append(duration)
-        return duration <= self.target_frame_time
+    def __getitem__(self, key: str) -> Any:
+        return self.data.get(key)
 
-    def get_stats(self) -> Dict[str, Union[float, int]]:
-        """Calculates telemetry for performance bottleneck analysis."""
-        if not self.history:
-            return {"avg": 0.0, "peak": 0.0}
-        return {
-            "avg": sum(self.history) / len(self.history),
-            "peak": max(self.history)
-        }
+    def persist(self) -> None:
+        with open(self.path, 'w') as f:
+            json.dump(self.data, f, indent=4)
 
-def adjust_load(scale_factor: Optional[float] = None) -> float:
-    """Dynamically scales rendering load based on hardware pressure."""
-    base_load: float = 1.0
-    if scale_factor is None:
-        return base_load
-    # Non-linear clamping to protect thermal headroom
-    return max(0.1, min(scale_factor, 2.5))
+    def patch(self, updates: Dict[str, Any]) -> None:
+        self.data.update(updates)
+        self.persist()
 
-if __name__ == "__main__":
-    optimizer = FrameOptimizer()
-    print(f"Target timing: {optimizer.target_frame_time:.6f}s")
+    def __repr__(self) -> str:
+        return f"<GameConfig current={len(self.data)} entries>"
+
+# Usage example for performance-critical pathing
+def get_game_config():
+    defaults = {"fps_cap": 60, "vsync": True, "render_scale": 1.0}
+    return ConfigLoader(defaults)
