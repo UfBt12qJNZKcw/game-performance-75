@@ -1,22 +1,33 @@
 import time
-import random
-import requests
+from typing import Callable, Any, Dict, TypeVar
 
-def retry_request(url, max_retries=5, delay=2):
-    attempts = 0
-    while attempts < max_retries:
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            attempts += 1
-            if attempts == max_retries:
-                raise e
-            wait_time = delay * (2 ** attempts) + random.uniform(0, 1)
-            print(f'Attempt {attempts} failed: {e}. Retrying in {wait_time:.2f} seconds...')
-            time.sleep(wait_time)
-    return None
+T = TypeVar('T')
 
-# Example usage
-# response_data = retry_request('https://api.example.com/data')
+def performance_throttle(interval: float) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """Decorator to ensure function execution does not exceed frequency."""
+    last_called: Dict[str, float] = {'ts': 0.0}
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            now: float = time.perf_counter()
+            elapsed: float = now - last_called['ts']
+            if elapsed < interval:
+                time.sleep(interval - elapsed)
+            last_called['ts'] = time.perf_counter()
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def frame_delta_scaler(base_fps: float = 60.0) -> Callable[[float], float]:
+    """Factory for frame-independent movement coefficient calculation."""
+    def scaler(current_delta: float) -> float:
+        return current_delta * base_fps
+    return scaler
+
+def memory_pressure_check(limit_mb: float = 1024.0) -> bool:
+    """Quick health check against game memory heap footprint."""
+    import os
+    import psutil
+    process = psutil.Process(os.getpid())
+    usage_mb: float = process.memory_info().rss / (1024 * 1024)
+    return usage_mb < limit_mb
