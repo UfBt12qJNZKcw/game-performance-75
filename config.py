@@ -3,31 +3,31 @@ import logging
 from typing import Any, Dict
 
 class ConfigLoader:
-    def __init__(self, path: str = 'settings.cfg'):
+    def __init__(self, path: str = 'settings.ini'):
         self.path = path
-        self.settings: Dict[str, Any] = {'fps_cap': 60, 'vsync': True}
+        self._defaults = {'fps_cap': 60, 'vsync': True, 'texture_quality': 'high'}
 
-    def load(self) -> Dict[str, Any]:
+    def fetch(self, key: str) -> Any:
         try:
             if not os.path.exists(self.path):
                 raise FileNotFoundError(f'Config missing at {self.path}')
             with open(self.path, 'r') as f:
-                for line in f:
-                    key, val = line.strip().split('=')
-                    self.settings[key.strip()] = self._cast_value(val.strip())
-        except (ValueError, IOError) as e:
-            logging.warning(f'Config malformed, using defaults: {e}')
-            self.settings = {'fps_cap': 60, 'vsync': True}
-        return self.settings
+                data = {line.split('=')[0].strip(): line.split('=')[1].strip() for line in f if '=' in line}
+                return data.get(key, self._defaults.get(key))
+        except (OSError, ValueError, IndexError) as e:
+            logging.warning(f'Config access failure for {key}: {e}. Returning fallback.')
+            return self._defaults.get(key)
 
-    def _cast_value(self, val: str) -> Any:
-        if val.lower() in ('true', 'false'):
-            return val.lower() == 'true'
+    def batch_load(self) -> Dict[str, Any]:
         try:
-            return int(val)
-        except ValueError:
-            return val
+            if not os.path.isfile(self.path):
+                return self._defaults
+            with open(self.path, 'r') as f:
+                raw = [line.split('=') for line in f if '=' in line]
+                return {**self._defaults, **{k.strip(): v.strip() for k, v in raw}}
+        except Exception as e:
+            logging.critical(f'Catastrophic config parse failure: {e}')
+            return self._defaults
 
-def get_app_config() -> Dict[str, Any]:
-    loader = ConfigLoader()
-    return loader.load()
+def get_instance() -> ConfigLoader:
+    return ConfigLoader()
