@@ -1,31 +1,33 @@
-import sys
-import time
-from collections import deque
+import logging
+from logging.handlers import RotatingFileHandler
+import os
 
-class PerformanceLogger:
-    """Circular buffer logger to prevent I/O blocking in hot game loops."""
-    def __init__(self, capacity=100):
-        self._buffer = deque(maxlen=capacity)
-        self._last_flush = time.perf_counter()
-        self._threshold = 0.5
+def get_game_logger(name: str = 'game-performance-75') -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
 
-    def log(self, message: str):
-        self._buffer.append(f"[{time.perf_counter():.4f}] {message}")
-        if time.perf_counter() - self._last_flush > self._threshold:
-            self.flush()
+    formatter = logging.Formatter(
+        '[%(asctime)s] | %(levelname)s | %(name)s | %(message)s',
+        datefmt='%H:%M:%S'
+    )
 
-    def flush(self):
-        if not self._buffer:
-            return
-        try:
-            output = "\n".join(list(self._buffer))
-            sys.stdout.write(output + "\n")
-            self._buffer.clear()
-        finally:
-            self._last_flush = time.perf_counter()
+    file_handler = RotatingFileHandler(
+        filename='logs/game.log',
+        maxBytes=1024 * 1024 * 5,
+        backupCount=3
+    )
+    file_handler.setFormatter(formatter)
 
-    def __enter__(self):
-        return self
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.flush()
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+    return logger
+
+logger = get_game_logger()
