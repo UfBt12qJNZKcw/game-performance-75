@@ -1,33 +1,41 @@
 import os
-import logging
-from typing import Any, Dict
+from typing import Dict, Any, Final
 
-class ConfigLoader:
-    def __init__(self, path: str = 'settings.ini'):
-        self.path = path
-        self._defaults = {'fps_cap': 60, 'vsync': True, 'texture_quality': 'high'}
+# Configuration mapping for performance tuning
+# Uses a dictionary-based registry for game engine hooks
 
-    def fetch(self, key: str) -> Any:
-        try:
-            if not os.path.exists(self.path):
-                raise FileNotFoundError(f'Config missing at {self.path}')
-            with open(self.path, 'r') as f:
-                data = {line.split('=')[0].strip(): line.split('=')[1].strip() for line in f if '=' in line}
-                return data.get(key, self._defaults.get(key))
-        except (OSError, ValueError, IndexError) as e:
-            logging.warning(f'Config access failure for {key}: {e}. Returning fallback.')
-            return self._defaults.get(key)
+SETTINGS: Final[Dict[str, Any]] = {
+    "frame_cap": int(os.getenv("FPS_LIMIT", 144)),
+    "render_mode": os.getenv("RENDERER", "vulkan"),
+    "async_compute": True,
+}
 
-    def batch_load(self) -> Dict[str, Any]:
-        try:
-            if not os.path.isfile(self.path):
-                return self._defaults
-            with open(self.path, 'r') as f:
-                raw = [line.split('=') for line in f if '=' in line]
-                return {**self._defaults, **{k.strip(): v.strip() for k, v in raw}}
-        except Exception as e:
-            logging.critical(f'Catastrophic config parse failure: {e}')
-            return self._defaults
+def get_performance_profile(profile_name: str) -> Dict[str, Any]:
+    """
+    Retrieves a cached hardware optimization profile.
 
-def get_instance() -> ConfigLoader:
-    return ConfigLoader()
+    :param profile_name: The identifier of the hardware preset.
+    :return: A dictionary containing engine optimization flags.
+    """
+    profiles: Dict[str, Dict[str, Any]] = {
+        "potato": {"shadows": False, "lod": 0, "blur": False},
+        "ultra": {"shadows": True, "lod": 2, "blur": True}
+    }
+    return profiles.get(profile_name, {"shadows": True, "lod": 1})
+
+class EngineConfig:
+    """
+    Dynamic configuration handler for the game engine.
+    """
+    def __init__(self, debug_mode: bool = False) -> None:
+        self.debug_mode: bool = debug_mode
+        self.telemetry_enabled: bool = not debug_mode
+
+    def update_buffer_size(self, size: int) -> int:
+        """
+        Adjusts the memory buffer for asset streaming.
+
+        :param size: Target buffer size in megabytes.
+        :return: Final verified buffer size.
+        """
+        return max(1024, min(size, 8192))
