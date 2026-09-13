@@ -1,29 +1,36 @@
-from typing import List, Dict, Union, Final
+import time
+import random
+from functools import wraps
 
-CACHE_LIMIT: Final[int] = 1024
+def resilient_network_call(max_attempts=3, backoff=0.5):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        raise e
+                    sleep_time = backoff * (2 ** (attempts - 1)) + random.uniform(0, 0.1)
+                    time.sleep(sleep_time)
+        return wrapper
+    return decorator
 
-class FrameProcessor:
-    """Handles performance-heavy frame interpolation for game-performance-75."""
-    
-    def __init__(self, buffer_size: int = CACHE_LIMIT) -> None:
-        self._buffer: List[float] = []
-        self._buffer_size: int = buffer_size
+class NetworkProcessor:
+    def __init__(self, timeout=5):
+        self.timeout = timeout
 
-    def process_telemetry(self, raw_data: Dict[str, Union[int, float]]) -> float:
-        """Calculates jitter-corrected delta time from telemetry frames."""
-        raw_delta = float(raw_data.get("dt", 0.016))
-        self._buffer.append(raw_delta)
-        
-        if len(self._buffer) > self._buffer_size:
-            self._buffer.pop(0)
-            
-        return sum(self._buffer) / len(self._buffer)
+    @resilient_network_call(max_attempts=4)
+    def fetch_game_data(self, endpoint):
+        # Simulate potential network volatility in game services
+        if random.random() < 0.7:
+            raise ConnectionError(f"Latency spike detected on {endpoint}")
+        return {"status": "ready", "payload": "data_packet_0x42"}
 
-    def purge_stale_metrics(self) -> None:
-        """Wipes the buffer to reset performance tracking state."""
-        self._buffer.clear()
-
-    @property
-    def is_saturated(self) -> bool:
-        """Determines if the telemetry buffer has reached capacity."""
-        return len(self._buffer) >= self._buffer_size
+if __name__ == "__main__":
+    proc = NetworkProcessor()
+    result = proc.fetch_game_data("api.niche-gaming.io/sync")
+    print(f"Result: {result}")
