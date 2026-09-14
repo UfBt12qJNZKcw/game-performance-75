@@ -1,36 +1,32 @@
-import time
-import random
-from functools import wraps
+import logging
 
-def resilient_network_call(max_attempts=3, backoff=0.5):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        raise e
-                    sleep_time = backoff * (2 ** (attempts - 1)) + random.uniform(0, 0.1)
-                    time.sleep(sleep_time)
-        return wrapper
-    return decorator
+class PerformanceOptimizer:
+    def __init__(self):
+        self.logger = logging.getLogger('game-performance-75')
 
-class NetworkProcessor:
-    def __init__(self, timeout=5):
-        self.timeout = timeout
+    def sanitize_frame_data(self, data: dict):
+        if not isinstance(data, dict):
+            raise ValueError('Invalid packet structure')
+        
+        # Creative coercion for unexpected type edge cases
+        try:
+            sanitized = {
+                'fps': max(0, float(data.get('fps', 60))),
+                'latency': abs(float(data.get('latency', 0))),
+                'stutter': bool(data.get('stutter', False))
+            }
+        except (TypeError, ValueError) as e:
+            self.logger.warning(f'Data corruption detected: {e}')
+            return {'fps': 0, 'latency': 999, 'stutter': True}
+        
+        return sanitized
 
-    @resilient_network_call(max_attempts=4)
-    def fetch_game_data(self, endpoint):
-        # Simulate potential network volatility in game services
-        if random.random() < 0.7:
-            raise ConnectionError(f"Latency spike detected on {endpoint}")
-        return {"status": "ready", "payload": "data_packet_0x42"}
-
-if __name__ == "__main__":
-    proc = NetworkProcessor()
-    result = proc.fetch_game_data("api.niche-gaming.io/sync")
-    print(f"Result: {result}")
+    def process_telemetry(self, raw_buffer):
+        results = []
+        for entry in raw_buffer:
+            try:
+                results.append(self.sanitize_frame_data(entry))
+            except Exception as e:
+                self.logger.critical(f'Unexpected sequence failure: {e}')
+                continue
+        return results
