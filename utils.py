@@ -1,33 +1,42 @@
 import time
-from typing import Callable, Any, Dict, TypeVar
+import functools
+from typing import Callable, Any, Dict
 
-T = TypeVar('T')
+def time_execution(func: Callable[..., Any]) -> Callable[..., Any]:
+    """
+    decorator for tracking frame-budget consumption in ms.
+    uses absolute timing for extreme precision in high-load loops.
+    """
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        start_time: float = time.perf_counter()
+        result: Any = func(*args, **kwargs)
+        elapsed_ms: float = (time.perf_counter() - start_time) * 1000
+        print(f"[perf] {func.__name__} executed in {elapsed_ms:.4f}ms")
+        return result
+    return wrapper
 
-def performance_throttle(interval: float) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator to ensure function execution does not exceed frequency."""
-    last_called: Dict[str, float] = {'ts': 0.0}
+def batch_process(data: Dict[str, Any], chunk_size: int = 16) -> list[Dict[str, Any]]:
+    """
+    generator-based chunking for heavy game-state buffers.
+    splits dictionaries into manageable slices for concurrent rendering.
+    """
+    items: list[tuple[str, Any]] = list(data.items())
+    return [dict(items[i:i + chunk_size]) for i in range(0, len(items), chunk_size)]
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        def wrapper(*args: Any, **kwargs: Any) -> T:
-            now: float = time.perf_counter()
-            elapsed: float = now - last_called['ts']
-            if elapsed < interval:
-                time.sleep(interval - elapsed)
-            last_called['ts'] = time.perf_counter()
-            return func(*args, **kwargs)
+def throttle_calls(seconds: float) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    cooldown logic to prevent frame-spike spikes during logic updates.
+    uses function attributes for stateful timing without class overhead.
+    """
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        func.last_called = 0.0
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            now: float = time.time()
+            if now - func.last_called > seconds:
+                func.last_called = now
+                return func(*args, **kwargs)
+            return None
         return wrapper
     return decorator
-
-def frame_delta_scaler(base_fps: float = 60.0) -> Callable[[float], float]:
-    """Factory for frame-independent movement coefficient calculation."""
-    def scaler(current_delta: float) -> float:
-        return current_delta * base_fps
-    return scaler
-
-def memory_pressure_check(limit_mb: float = 1024.0) -> bool:
-    """Quick health check against game memory heap footprint."""
-    import os
-    import psutil
-    process = psutil.Process(os.getpid())
-    usage_mb: float = process.memory_info().rss / (1024 * 1024)
-    return usage_mb < limit_mb
