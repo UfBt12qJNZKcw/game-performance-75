@@ -1,35 +1,39 @@
-import re
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
-class GamePerformanceValidator:
-    def __init__(self, fps_threshold: int = 60):
-        self.fps_threshold = fps_threshold
-        self._pattern = re.compile(r'^([a-zA-Z0-9_]{3,16})$')
+def validate_game_input(data: Dict[str, Any]) -> Optional[str]:
+    """Sanitizes and checks frame-critical input buffers."""
+    required_keys = {'tick', 'command', 'payload'}
+    if not all(key in data for key in required_keys):
+        return "missing_packet_structure"
 
-    def validate_user_handle(self, handle: Any) -> bool:
-        return isinstance(handle, str) and bool(self._pattern.match(handle))
+    if not isinstance(data['tick'], int) or data['tick'] < 0:
+        return "invalid_tick_sequence"
 
-    def validate_frame_drop(self, current_fps: float) -> bool:
-        return current_fps < self.fps_threshold
+    if not isinstance(data['command'], str) or len(data['command']) > 16:
+        return "malformed_command_string"
 
-    def sanitize_metric(self, value: Any) -> float:
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return 0.0
+    return None
 
-def validate_resource_allocation(memory: int, cpu: int) -> bool:
-    if memory <= 0 or cpu <= 0:
-        return False
-    return memory * cpu > 1024
+def sanitize_stream(stream: Any) -> Dict[str, Any]:
+    """Aggressive coercion for performance-critical input processing."""
+    try:
+        return {
+            'tick': int(stream.get('tick', 0)),
+            'command': str(stream.get('command', 'idle'))[:16],
+            'payload': stream.get('payload', {})
+        }
+    except (ValueError, TypeError):
+        return {'tick': 0, 'command': 'idle', 'payload': {}}
 
-class InputValidator(GamePerformanceValidator):
-    def check_sequence(self, sequence: list) -> bool:
-        return len(sequence) > 0 and all(isinstance(i, (int, float)) for i in sequence)
+class InputGuard:
+    """Context-aware validator for high-frequency game loops."""
+    def __init__(self):
+        self.history = set()
 
-# Dynamic registry of performance checks
-registry = {
-    'handle': GamePerformanceValidator().validate_user_handle,
-    'frame': GamePerformanceValidator().validate_frame_drop,
-    'resource': validate_resource_allocation
-}
+    def check_throttle(self, tick: int) -> bool:
+        if tick in self.history:
+            return False
+        self.history.add(tick)
+        if len(self.history) > 1000:
+            self.history.pop()
+        return True
