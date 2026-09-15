@@ -1,32 +1,49 @@
-import logging
+import time
+import functools
+from typing import Callable, Any
+
+def throttle_frame_rate(fps: int):
+    def decorator(func: Callable):
+        interval = 1.0 / fps
+        last_called = [0.0]
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            elapsed = time.perf_counter() - last_called[0]
+            if elapsed >= interval:
+                last_called[0] = time.perf_counter()
+                return func(*args, **kwargs)
+            return None
+        return wrapper
+    return decorator
+
+def memoize_entity_data(func: Callable):
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
 
 class PerformanceOptimizer:
-    def __init__(self):
-        self.logger = logging.getLogger('game-performance-75')
+    @staticmethod
+    def clamp(value: float, min_val: float, max_val: float) -> float:
+        return max(min_val, min(value, max_val))
 
-    def sanitize_frame_data(self, data: dict):
-        if not isinstance(data, dict):
-            raise ValueError('Invalid packet structure')
-        
-        # Creative coercion for unexpected type edge cases
-        try:
-            sanitized = {
-                'fps': max(0, float(data.get('fps', 60))),
-                'latency': abs(float(data.get('latency', 0))),
-                'stutter': bool(data.get('stutter', False))
-            }
-        except (TypeError, ValueError) as e:
-            self.logger.warning(f'Data corruption detected: {e}')
-            return {'fps': 0, 'latency': 999, 'stutter': True}
-        
-        return sanitized
+    @staticmethod
+    def serialize_vector(vec: tuple) -> str:
+        return ':'.join(map(str, vec))
 
-    def process_telemetry(self, raw_buffer):
-        results = []
-        for entry in raw_buffer:
-            try:
-                results.append(self.sanitize_frame_data(entry))
-            except Exception as e:
-                self.logger.critical(f'Unexpected sequence failure: {e}')
-                continue
-        return results
+    @staticmethod
+    def batch_process(data: list, func: Callable, chunk_size: int = 10):
+        for i in range(0, len(data), chunk_size):
+            yield [func(item) for item in data[i:i + chunk_size]]
+
+def debug_log_execution(func: Callable):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        print(f'[PERF] {func.__name__} took {time.perf_counter() - start:.6f}s')
+        return result
+    return wrapper
