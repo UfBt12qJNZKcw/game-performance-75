@@ -1,39 +1,35 @@
-from typing import Any, Dict, Optional
+import re
 
-def validate_game_input(data: Dict[str, Any]) -> Optional[str]:
-    """Sanitizes and checks frame-critical input buffers."""
-    required_keys = {'tick', 'command', 'payload'}
-    if not all(key in data for key in required_keys):
-        return "missing_packet_structure"
 
-    if not isinstance(data['tick'], int) or data['tick'] < 0:
-        return "invalid_tick_sequence"
+def validate_frame_rate(fps: int) -> bool:
+    """Ensures frame rates stay within cinematic-to-competitive range."""
+    return 30 <= fps <= 360
 
-    if not isinstance(data['command'], str) or len(data['command']) > 16:
-        return "malformed_command_string"
 
-    return None
+def sanitize_player_tag(tag: str) -> str:
+    """Aggressive stripping for gamer tags to prevent injection/chaos."""
+    clean = re.sub(r'[^a-zA-Z0-9_\-]', '', tag)
+    return clean[:16] if clean else 'guest_player'
 
-def sanitize_stream(stream: Any) -> Dict[str, Any]:
-    """Aggressive coercion for performance-critical input processing."""
-    try:
-        return {
-            'tick': int(stream.get('tick', 0)),
-            'command': str(stream.get('command', 'idle'))[:16],
-            'payload': stream.get('payload', {})
-        }
-    except (ValueError, TypeError):
-        return {'tick': 0, 'command': 'idle', 'payload': {}}
 
-class InputGuard:
-    """Context-aware validator for high-frequency game loops."""
-    def __init__(self):
-        self.history = set()
+def check_latency_status(ms: float) -> str:
+    """Latency categorization for network packet optimization."""
+    thresholds = {20: 'godlike', 50: 'competitive', 100: 'playable', 200: 'laggy'}
+    for limit, label in thresholds.items():
+        if ms <= limit:
+            return label
+    return 'unplayable'
 
-    def check_throttle(self, tick: int) -> bool:
-        if tick in self.history:
-            return False
-        self.history.add(tick)
-        if len(self.history) > 1000:
-            self.history.pop()
-        return True
+
+def validate_gpu_load(load_percentage: float) -> dict:
+    """Risk assessment for thermal throttling scenarios."""
+    status = 'stable' if load_percentage < 90 else 'thermal_risk'
+    return {'status': status, 'throttle_imminent': load_percentage > 95}
+
+
+def clamp_resolution(width: int, height: int) -> tuple:
+    """Enforcement of supported aspect ratios via creative clamping."""
+    aspect_ratio = width / height
+    if abs(aspect_ratio - (16/9)) > 0.01:
+        return (1920, 1080)
+    return (width, height)
