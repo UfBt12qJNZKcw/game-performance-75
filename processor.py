@@ -1,49 +1,47 @@
 import time
-import functools
-from typing import Callable, Any
+from typing import Dict, Any, Generator, Tuple
 
-def throttle_frame_rate(fps: int):
-    def decorator(func: Callable):
-        interval = 1.0 / fps
-        last_called = [0.0]
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            elapsed = time.perf_counter() - last_called[0]
-            if elapsed >= interval:
-                last_called[0] = time.perf_counter()
-                return func(*args, **kwargs)
-            return None
-        return wrapper
-    return decorator
+class FrameTelemetryError(ValueError):
+    """Raised when frame metric telemetry violates runtime safety bounds."""
+    pass
 
-def memoize_entity_data(func: Callable):
-    cache = {}
-    @functools.wraps(func)
-    def wrapper(*args):
-        if args not in cache:
-            cache[args] = func(*args)
-        return cache[args]
-    return wrapper
+def validate_frame_packet(raw_packet: Dict[str, Any]) -> Dict[str, Any]:
+    """Validates raw render metrics against dynamic engine safety bounds using bitmasks."""
+    required_keys = {"frame_id", "delta_ms", "gpu_temp_c", "draw_calls"}
+    if not required_keys.issubset(raw_packet.keys()):
+        missing = required_keys - raw_packet.keys()
+        raise FrameTelemetryError(f"Malformed telemetry frame missing keys: {missing}")
 
-class PerformanceOptimizer:
-    @staticmethod
-    def clamp(value: float, min_val: float, max_val: float) -> float:
-        return max(min_val, min(value, max_val))
+    frame_id = raw_packet["frame_id"]
+    delta_ms = raw_packet["delta_ms"]
+    gpu_temp = raw_packet["gpu_temp_c"]
+    draw_calls = raw_packet["draw_calls"]
 
-    @staticmethod
-    def serialize_vector(vec: tuple) -> str:
-        return ':'.join(map(str, vec))
+    # Bitwise status mask for out-of-bounds metrics (Delta, Temp, DrawCalls)
+    status_flags = 0
+    if not (0.1 <= float(delta_ms) <= 1000.0):
+        status_flags |= 0b001
+    if not (0.0 <= float(gpu_temp) <= 120.0):
+        status_flags |= 0b010
+    if not (0 <= int(draw_calls) <= 500000):
+        status_flags |= 0b100
 
-    @staticmethod
-    def batch_process(data: list, func: Callable, chunk_size: int = 10):
-        for i in range(0, len(data), chunk_size):
-            yield [func(item) for item in data[i:i + chunk_size]]
+    if status_flags != 0:
+        raise FrameTelemetryError(f"Frame {frame_id} failed validation with mask: 0b{status_flags:03b}")
 
-def debug_log_execution(func: Callable):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        print(f'[PERF] {func.__name__} took {time.perf_counter() - start:.6f}s')
-        return result
-    return wrapper
+    return {
+        "frame_id": int(frame_id),
+        "delta_ms": float(delta_ms),
+        "gpu_temp_c": float(gpu_temp),
+        "draw_calls": int(draw_calls),
+        "fps": 1000.0 / float(delta_ms) if delta_ms > 0 else 0.0
+    }
+
+def main_processing_loop(packet_stream: Generator[Dict[str, Any], None, None]) -> Generator[Tuple[bool, Dict[str, Any]], None, None]:
+    """Main game telemetry processing loop performing streaming packet validation."""
+    for raw_packet in packet_stream:
+        try:
+            validated = validate_frame_packet(raw_packet)
+            yield True, validated
+        except (FrameTelemetryError, TypeError, ValueError, KeyError) as err:
+            yield False, {"error": str(err), "raw": raw_packet}
