@@ -1,17 +1,19 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # game-performance-75
 
-`game-performance-75` is a high-precision telemetry and optimization toolkit designed to monitor hardware utilization and framerate stability in Python-based game environments. This project provides real-time performance logging and automated resource allocation to minimize stuttering during heavy gaming sessions.
+`game-performance-75` is a lightweight Python telemetry tool designed to capture frame time consistency and hardware resource utilization during active gaming sessions. It analyzes real-time system metrics to help gamers pinpoint micro-stutter, evaluate 75 FPS performance targets, and optimize graphics configurations.
 
 ## Features
 
-*   **FPS Telemetry:** Captures sub-millisecond frame time data with minimal CPU overhead.
-*   **Dynamic Resource Throttling:** Automatically adjusts background process priority during high-demand gameplay.
-*   **Thermal Monitoring:** Tracks GPU and CPU junction temperatures, logging anomalies to a local CSV report.
-*   **Overlay Integration:** Provides a lightweight CLI output compatible with standard windowed game hooks.
+- **Frame Time & Lows Tracking**: Logs 1% and 0.1% low FPS metrics alongside hardware telemetry to accurately reflect perceived smoothness.
+- **Stutter Detection Algorithm**: Flags any render frame times exceeding the 13.33ms baseline window required for stable 75Hz display output.
+- **Automated Visual Reports**: Generates HTML performance summaries with interactive matplotlib plots showing CPU/GPU temperature and clock speed correlation.
+- **Low-Overhead Execution**: Runs as an asynchronous background process with sub-1% CPU usage, preventing benchmark skewing.
 
 ## Installation
 
-Ensure you have Python 3.8+ installed. You can install the package directly via pip:
+Ensure you have Python 3.9+ installed, then run:
 
 ```bash
 git clone https://github.com/Developer/game-performance-75.git
@@ -20,27 +22,33 @@ pip install -r requirements.txt
 python setup.py install
 ```
 
-## Usage
+## Quick Start
 
-To initialize the performance monitor for a specific executable process, use the following command:
+Start a session recorder in your Python script or integrate it into your automated benchmarks:
 
 ```python
-from game_perf import Monitor
+from game_perf75 import TelemetryMonitor, ReportGenerator
 
-# Initialize monitor on target process ID
-monitor = Monitor(pid=1234, sample_rate=0.5)
+# Initialize monitor tuned for a 75 FPS baseline target
+monitor = TelemetryMonitor(target_fps=75, sampling_rate_ms=100)
 
-# Start logging performance to disk
-monitor.start_log(output_file="session_stats.csv")
+# Start logging during gameplay
+monitor.start("Cyberpunk2077_HighSettings")
 
-# Run optimization cycle
-monitor.optimize()
+# ... run your game or benchmark loop ...
+
+# Stop logging and build the HTML report
+log_path = monitor.stop()
+report = ReportGenerator(log_path)
+report.to_html("performance_summary.html")
 ```
 
-The tool will now continuously track frame delivery and hardware thermal states, outputting alerts if the system temperature exceeds 85°C.
+To run directly from the command line:
+
+```bash
+python -m game_perf75 --duration 300 --output session_log.json
+```
 
 ## License
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for details.
