@@ -1,41 +1,40 @@
+import json
 import os
-from typing import Dict, Any, Final
+from typing import Any, Dict
 
-# Configuration mapping for performance tuning
-# Uses a dictionary-based registry for game engine hooks
+class ConfigLoader:
+    """Dynamic configuration mapper with nested default injection."""
+    def __init__(self, defaults: Dict[str, Any]):
+        self._data = defaults
 
-SETTINGS: Final[Dict[str, Any]] = {
-    "frame_cap": int(os.getenv("FPS_LIMIT", 144)),
-    "render_mode": os.getenv("RENDERER", "vulkan"),
-    "async_compute": True,
-}
+    def load(self, path: str) -> None:
+        if not os.path.exists(path):
+            return
+        with open(path, 'r') as f:
+            user_config = json.load(f)
+            self._deep_merge(self._data, user_config)
 
-def get_performance_profile(profile_name: str) -> Dict[str, Any]:
-    """
-    Retrieves a cached hardware optimization profile.
+    def _deep_merge(self, base: Dict, patch: Dict) -> None:
+        for key, value in patch.items():
+            if isinstance(value, dict) and key in base and isinstance(base[key], dict):
+                self._deep_merge(base[key], value)
+            else:
+                base[key] = value
 
-    :param profile_name: The identifier of the hardware preset.
-    :return: A dictionary containing engine optimization flags.
-    """
-    profiles: Dict[str, Dict[str, Any]] = {
-        "potato": {"shadows": False, "lod": 0, "blur": False},
-        "ultra": {"shadows": True, "lod": 2, "blur": True}
-    }
-    return profiles.get(profile_name, {"shadows": True, "lod": 1})
+    def get(self, key_path: str, default: Any = None) -> Any:
+        keys = key_path.split('.')
+        curr = self._data
+        try:
+            for k in keys:
+                curr = curr[k]
+            return curr
+        except (KeyError, TypeError):
+            return default
 
-class EngineConfig:
-    """
-    Dynamic configuration handler for the game engine.
-    """
-    def __init__(self, debug_mode: bool = False) -> None:
-        self.debug_mode: bool = debug_mode
-        self.telemetry_enabled: bool = not debug_mode
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
 
-    def update_buffer_size(self, size: int) -> int:
-        """
-        Adjusts the memory buffer for asset streaming.
-
-        :param size: Target buffer size in megabytes.
-        :return: Final verified buffer size.
-        """
-        return max(1024, min(size, 8192))
+def create_config(path: str, defaults: Dict[str, Any]) -> ConfigLoader:
+    loader = ConfigLoader(defaults)
+    loader.load(path)
+    return loader
