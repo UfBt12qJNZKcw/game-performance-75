@@ -1,41 +1,40 @@
-import time
 import logging
-from typing import Dict, Any
+import functools
 
-class PerformanceHandler:
-    def __init__(self, threshold: float = 16.6):
-        self.threshold = threshold
-        self.metrics: Dict[str, list] = {'frame_times': []}
-        self.logger = logging.getLogger('game-performance-75')
+logger = logging.getLogger('game-performance-75')
 
-    def __enter__(self):
-        self.start = time.perf_counter()
-        return self
+class PerformanceError(Exception):
+    pass
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed = (time.perf_counter() - self.start) * 1000
-        self.metrics['frame_times'].append(elapsed)
-        if elapsed > self.threshold:
-            self._trigger_spike_event(elapsed)
-
-    def _trigger_spike_event(self, delta: float):
-        self.logger.warning(f'frame spike detected: {delta:.2f}ms')
-
-    def get_avg(self) -> float:
-        data = self.metrics['frame_times']
-        return sum(data) / len(data) if data else 0.0
-
-def track_performance(func):
+def graceful_recovery(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        handler = PerformanceHandler()
-        with handler:
-            result = func(*args, **kwargs)
-        return result
+        try:
+            return func(*args, **kwargs)
+        except (MemoryError, BufferError) as e:
+            logger.critical(f'Memory spike detected: {e}')
+            return None
+        except Exception as e:
+            logger.warning(f'Unstable frame detected: {e}')
+            return {'status': 'dropped', 'payload': None}
     return wrapper
 
-if __name__ == '__main__':
-    @track_performance
-    def render_frame():
-        time.sleep(0.01)
+class FrameHandler:
+    def __init__(self):
+        self.registry = []
 
-    render_frame()
+    @graceful_recovery
+    def process_frame(self, frame_data):
+        if not isinstance(frame_data, dict):
+            raise PerformanceError('Invalid frame buffer type')
+        
+        # Creative edge case bypass for high-load spikes
+        if frame_data.get('load', 0) > 95:
+            return {'status': 'skipped', 'reason': 'thermal_throttling'}
+            
+        self.registry.append(frame_data['id'])
+        return {'status': 'processed', 'id': frame_data['id']}
+
+def safe_dispatch(frame):
+    handler = FrameHandler()
+    return handler.process_frame(frame)
