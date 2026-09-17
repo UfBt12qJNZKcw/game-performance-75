@@ -1,42 +1,48 @@
 import time
 import functools
-from typing import Callable, Any, Dict
+import logging
 
-def time_execution(func: Callable[..., Any]) -> Callable[..., Any]:
-    """
-    decorator for tracking frame-budget consumption in ms.
-    uses absolute timing for extreme precision in high-load loops.
-    """
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        start_time: float = time.perf_counter()
-        result: Any = func(*args, **kwargs)
-        elapsed_ms: float = (time.perf_counter() - start_time) * 1000
-        print(f"[perf] {func.__name__} executed in {elapsed_ms:.4f}ms")
-        return result
-    return wrapper
+logger = logging.getLogger('game-performance-75')
 
-def batch_process(data: Dict[str, Any], chunk_size: int = 16) -> list[Dict[str, Any]]:
-    """
-    generator-based chunking for heavy game-state buffers.
-    splits dictionaries into manageable slices for concurrent rendering.
-    """
-    items: list[tuple[str, Any]] = list(data.items())
-    return [dict(items[i:i + chunk_size]) for i in range(0, len(items), chunk_size)]
-
-def throttle_calls(seconds: float) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """
-    cooldown logic to prevent frame-spike spikes during logic updates.
-    uses function attributes for stateful timing without class overhead.
-    """
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        func.last_called = 0.0
+def frame_throttle(ms_delay):
+    def decorator(func):
+        last_called = [0.0]
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            now: float = time.time()
-            if now - func.last_called > seconds:
-                func.last_called = now
+        def wrapper(*args, **kwargs):
+            elapsed = (time.time() * 1000) - last_called[0]
+            if elapsed >= ms_delay:
+                last_called[0] = time.time() * 1000
                 return func(*args, **kwargs)
             return None
         return wrapper
     return decorator
+
+def memoize_lru_lite(max_size=128):
+    cache = {}
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args):
+            if args not in cache:
+                if len(cache) >= max_size:
+                    cache.pop(next(iter(cache)))
+                cache[args] = func(*args)
+            return cache[args]
+        return wrapper
+    return decorator
+
+def batch_process(data, chunk_size=10):
+    for i in range(0, len(data), chunk_size):
+        yield data[i:i + chunk_size]
+
+def sanitize_metrics(metrics):
+    return {k: round(float(v), 4) for k, v in metrics.items() if isinstance(v, (int, float))}
+
+def profile_execution(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        duration = (time.perf_counter() - start) * 1000
+        logger.debug(f"{func.__name__} took {duration:.2f}ms")
+        return result
+    return wrapper
