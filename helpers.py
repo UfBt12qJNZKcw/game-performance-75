@@ -1,34 +1,39 @@
-import time
 import functools
-import random
+import time
+import collections
 
-def jitter_backoff(max_retries=3, base_delay=0.5, backoff_factor=2):
-    def decorator(func):
+class JITCache:
+    def __init__(self, limit=128):
+        self.limit = limit
+        self.storage = collections.OrderedDict()
+
+    def __call__(self, func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            retries = 0
-            delay = base_delay
-            while retries <= max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    retries += 1
-                    if retries > max_retries:
-                        raise e
-                    
-                    sleep_time = delay * (backoff_factor ** (retries - 1))
-                    jitter = sleep_time * 0.1 * random.uniform(-1, 1)
-                    time.sleep(sleep_time + jitter)
-            return None
+            key = (func.__name__, args, frozenset(kwargs.items()))
+            if key in self.storage:
+                return self.storage[key]
+            result = func(*args, **kwargs)
+            if len(self.storage) >= self.limit:
+                self.storage.popitem(last=False)
+            self.storage[key] = result
+            return result
         return wrapper
-    return decorator
 
-def network_op_wrapper(operation_func):
-    """
-    Wraps volatile network calls with exponential backoff 
-    to stabilize frame-time sensitive game connections.
-    """
-    @jitter_backoff(max_retries=5, base_delay=0.2)
-    def managed_call(*args, **kwargs):
-        return operation_func(*args, **kwargs)
-    return managed_call
+class LazyFrameTimer:
+    def __init__(self, threshold=0.016):
+        self.threshold = threshold
+        self.last_tick = time.perf_counter()
+
+    def throttle_frame_logic(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.perf_counter()
+            if (now - self.last_tick) < self.threshold:
+                return None
+            self.last_tick = now
+            return func(*args, **kwargs)
+        return wrapper
+
+def memory_compact_dispatch(data_dict):
+    return {k: v for k, v in data_dict.items() if v is not None}
