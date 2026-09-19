@@ -1,64 +1,38 @@
-import time
-from typing import List, Generator, Tuple
+import sys
 
-class FrameMetricsEngine:
-    def __init__(self, target_fps: float = 60.0):
-        self.target_frame_time = 1.0 / target_fps
-        self.frame_history: List[float] = []
+def sanitize_input(user_input):
+    try:
+        action, val = user_input.split(':', 1)
+        return action.strip().lower(), float(val)
+    except (ValueError, AttributeError):
+        return None, None
 
-    def track_frame(self, delta_time: float) -> Tuple[float, float]:
-        """
-        Tracks delta time, returning (filtered_fps, jitter).
-        Heals unusual telemetry anomalies (negatives, zero, massive spikes).
-        """
-        # Edge Case 1: Zero or negative delta times (clock anomalies)
-        if delta_time <= 0:
-            delta_time = self.target_frame_time * 1.5
+def game_loop():
+    print('--- Game Engine Initialized ---')
+    valid_commands = {'move', 'jump', 'fire'}
+    
+    while True:
+        try:
+            raw = input('input (cmd:val)> ')
+            if raw == 'exit':
+                break
+            
+            cmd, val = sanitize_input(raw)
+            
+            if cmd not in valid_commands:
+                print(f'rejected invalid command: {cmd}')
+                continue
+            
+            if not (0 <= val <= 100):
+                print(f'clamping out-of-bounds value: {val}')
+                val = max(0, min(100, val))
+                
+            print(f'processed {cmd} with intensity {val}')
+            
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f'critical loop error: {e}')
 
-        # Edge Case 2: Extreme spike (e.g., asset loading stutter > 2 seconds)
-        # Capped to prevent ruining moving average metrics permanently
-        if delta_time > 2.0:
-            delta_time = self.target_frame_time * 5.0
-
-        self.frame_history.append(delta_time)
-        if len(self.frame_history) > 120:
-            self.frame_history.pop(0)
-
-        return self._calculate_metrics()
-
-    def _calculate_metrics(self) -> Tuple[float, float]:
-        # Edge Case 3: Empty history
-        if not self.frame_history:
-            return 0.0, 0.0
-
-        weights = [1.05 ** i for i in range(len(self.frame_history))]
-        total_weight = sum(weights)
-        
-        if total_weight == 0:
-            total_weight = 1.0
-            weights = [1.0] * len(self.frame_history)
-
-        weighted_sum = sum(f * w for f, w in zip(self.frame_history, weights))
-        avg_frame_time = weighted_sum / total_weight
-
-        # Edge Case 4: Near-zero average frame time protection
-        filtered_fps = 1.0 / max(avg_frame_time, 1e-6)
-
-        if len(self.frame_history) < 2:
-            return filtered_fps, 0.0
-
-        jitters = [
-            abs(self.frame_history[i] - self.frame_history[i - 1])
-            for i in range(1, len(self.frame_history))
-        ]
-        avg_jitter = sum(jitters) / len(jitters)
-
-        return round(filtered_fps, 2), round(avg_jitter, 5)
-
-    def stream_telemetry(self, stream: Generator[float, None, None]) -> Generator[Tuple[float, float], None, None]:
-        """Processes an incoming raw telemetry stream with total failure protection."""
-        for dt in stream:
-            try:
-                yield self.track_frame(dt)
-            except Exception:
-                yield (0.0, 0.0)
+if __name__ == '__main__':
+    game_loop()
