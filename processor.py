@@ -1,39 +1,37 @@
-import functools
-import gc
+import time
+import random
+from functools import wraps
 
-class FrameOptimizer:
-    def __init__(self, cache_size=128):
-        self.cache_size = cache_size
-        self._memo = {}
-
-    def fast_path(self, func):
-        @functools.wraps(func)
+def retry_network_call(max_attempts=3, backoff=0.5):
+    def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
-            key = (func.__name__, args, frozenset(kwargs.items()))
-            if key not in self._memo:
-                if len(self._memo) > self.cache_size:
-                    self._memo.clear()
-                    gc.collect()
-                self._memo[key] = func(*args, **kwargs)
-            return self._memo[key]
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        raise e
+                    sleep_time = backoff * (2 ** (attempts - 1)) + random.uniform(0, 0.1)
+                    time.sleep(sleep_time)
+            return None
         return wrapper
+    return decorator
 
-def batch_process_entities(entities, transform_func, chunk_size=32):
-    results = []
-    for i in range(0, len(entities), chunk_size):
-        chunk = entities[i:i + chunk_size]
-        results.extend(map(transform_func, chunk))
-    return results
+class NetworkProcessor:
+    def __init__(self, endpoint):
+        self.endpoint = endpoint
 
-class PerformanceEngine:
-    def __init__(self):
-        self.optimizer = FrameOptimizer()
+    @retry_network_call(max_attempts=4, backoff=1.0)
+    def fetch_game_data(self, request_id):
+        # Simulate unstable network response
+        if random.random() < 0.7:
+            raise ConnectionError(f'Latency spike at {self.endpoint}')
+        return {'status': 'success', 'id': request_id, 'data': 'payload'}
 
-    def process_frame(self, data):
-        # Unusual bypass of global overhead for performance critical paths
-        processor = self.optimizer.fast_path(lambda x: x * 1.05)
-        return [processor(val) for val in data]
-
-# Initialization of global handler
-engine = PerformanceEngine()
-def execute(data): return engine.process_frame(data)
+if __name__ == '__main__':
+    proc = NetworkProcessor('https://api.game-perf.75')
+    result = proc.fetch_game_data(101)
+    print(f'Processed: {result}')
