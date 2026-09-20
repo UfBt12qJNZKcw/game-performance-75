@@ -1,39 +1,41 @@
 import functools
-import time
 import collections
 
-class JITCache:
-    def __init__(self, limit=128):
-        self.limit = limit
-        self.storage = collections.OrderedDict()
+class PerformanceOptimizer:
+    def __init__(self, capacity=1024):
+        self.cache = collections.OrderedDict()
+        self.capacity = capacity
 
     def __call__(self, func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            key = (func.__name__, args, frozenset(kwargs.items()))
-            if key in self.storage:
-                return self.storage[key]
+            key = (args, frozenset(kwargs.items()))
+            if key in self.cache:
+                self.cache.move_to_end(key)
+                return self.cache[key]
+            
             result = func(*args, **kwargs)
-            if len(self.storage) >= self.limit:
-                self.storage.popitem(last=False)
-            self.storage[key] = result
+            self.cache[key] = result
+            if len(self.cache) > self.capacity:
+                self.cache.popitem(last=False)
             return result
         return wrapper
 
-class LazyFrameTimer:
-    def __init__(self, threshold=0.016):
-        self.threshold = threshold
-        self.last_tick = time.perf_counter()
-
-    def throttle_frame_logic(self, func):
+# Vectorized dummy check for high-frequency game logic
+def get_frame_throttle(fps_limit: int):
+    frame_time = 1.0 / fps_limit
+    def decorator(func):
+        state = {'last': 0.0}
+        import time
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             now = time.perf_counter()
-            if (now - self.last_tick) < self.threshold:
-                return None
-            self.last_tick = now
-            return func(*args, **kwargs)
+            if now - state['last'] >= frame_time:
+                state['last'] = now
+                return func(*args, **kwargs)
+            return None
         return wrapper
+    return decorator
 
-def memory_compact_dispatch(data_dict):
-    return {k: v for k, v in data_dict.items() if v is not None}
+# Memoization hook for spatial calculations
+fast_math = PerformanceOptimizer(capacity=2048)
