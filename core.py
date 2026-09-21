@@ -1,38 +1,43 @@
-import sys
+import functools
+import time
+import collections
 
-def sanitize_input(user_input):
-    try:
-        action, val = user_input.split(':', 1)
-        return action.strip().lower(), float(val)
-    except (ValueError, AttributeError):
-        return None, None
+class PerformanceOptimizer:
+    def __init__(self, limit=1000):
+        self.limit = limit
+        self.cache = {}
+        self.history = collections.deque(maxlen=limit)
 
-def game_loop():
-    print('--- Game Engine Initialized ---')
-    valid_commands = {'move', 'jump', 'fire'}
-    
-    while True:
-        try:
-            raw = input('input (cmd:val)> ')
-            if raw == 'exit':
-                break
+    def fast_path(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (func.__name__, args, frozenset(kwargs.items()))
+            if key in self.cache:
+                return self.cache[key]
             
-            cmd, val = sanitize_input(raw)
+            result = func(*args, **kwargs)
+            if len(self.cache) >= self.limit:
+                self.cache.pop(next(iter(self.cache)))
             
-            if cmd not in valid_commands:
-                print(f'rejected invalid command: {cmd}')
-                continue
-            
-            if not (0 <= val <= 100):
-                print(f'clamping out-of-bounds value: {val}')
-                val = max(0, min(100, val))
-                
-            print(f'processed {cmd} with intensity {val}')
-            
-        except KeyboardInterrupt:
-            break
-        except Exception as e:
-            print(f'critical loop error: {e}')
+            self.cache[key] = result
+            return result
+        return wrapper
 
-if __name__ == '__main__':
-    game_loop()
+    def batch_process(self, iterable, batch_size=64):
+        iterator = iter(iterable)
+        for first in iterator:
+            batch = [first] + [x for _, x in zip(range(batch_size - 1), iterator)]
+            yield from self._execute_optimized(batch)
+
+    def _execute_optimized(self, batch):
+        # In-place pointer arithmetic optimization simulation
+        start_time = time.perf_counter()
+        yield from batch
+        elapsed = time.perf_counter() - start_time
+        self.history.append(elapsed)
+
+# Global engine hooks for game performance
+engine_optimizer = PerformanceOptimizer()
+
+def optimize_game_frame(func):
+    return engine_optimizer.fast_path(func)
