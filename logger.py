@@ -1,36 +1,37 @@
 import logging
-import functools
+from logging.handlers import RotatingFileHandler
+import os
 
-# Configure logger for game-performance-75
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - [PERF] - %(message)s')
-logger = logging.getLogger('game_perf')
+def setup_logger(name='game_engine', log_file='game_perf.log', level=logging.DEBUG):
+    """
+    Orchestrator for rotating log streams, keeping memory footprint low
+    for frame-rate sensitive diagnostic cycles.
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
 
-def validate_input_frame(func):
-    """Decorator that treats invalid data as a performance hitch."""
-    @functools.wraps(func)
-    def wrapper(data, *args, **kwargs):
-        if not isinstance(data, dict) or 'frame_id' not in data:
-            logger.warning(f"Dropped malformed telemetry packet: {type(data).__name__}")
-            return None
-        if data.get('delta', 0) < 0:
-            logger.error("Negative delta detected: possible system clock drift")
-            return None
-        return func(data, *args, **kwargs)
-    return wrapper
+    formatter = logging.Formatter(
+        '%(asctime)s | %(levelname)-8s | [%(name)s] -> %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
-@validate_input_frame
-def process_telemetry(data):
-    """Simulated main loop processing unit."""
-    logger.info(f"Processing frame {data['frame_id']} at {data['delta']}ms")
-    return True
+    # 5MB per log file, keep 3 backups to preserve disk I/O
+    handler = RotatingFileHandler(
+        log_file, 
+        maxBytes=5 * 1024 * 1024, 
+        backupCount=3
+    )
+    
+    handler.setFormatter(formatter)
+    
+    if not logger.handlers:
+        logger.addHandler(handler)
+        # Add console output for debug sessions
+        console = logging.StreamHandler()
+        console.setFormatter(formatter)
+        logger.addHandler(console)
 
-# Mocking input loop
-if __name__ == '__main__':
-    inputs = [
-        {'frame_id': 1, 'delta': 16.6},
-        {'corrupt': 'data'},
-        {'frame_id': 2, 'delta': -1},
-        {'frame_id': 3, 'delta': 8.3}
-    ]
-    for i in inputs:
-        process_telemetry(i)
+    return logger
+
+# Instantiate the global diagnostic pipeline
+debug_logger = setup_logger()
