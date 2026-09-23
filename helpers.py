@@ -1,52 +1,44 @@
 import time
-import math
-from typing import Callable, Any, Tuple
-from functools import wraps
+import functools
+from typing import Callable, Any
 
-def fps_budget(target_fps: float = 60.0, strict: bool = False):
-    """Decorator tracking function runtime against target frame budget."""
-    target_dt = 1.0 / target_fps
-    
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Tuple[Any, float, bool]:
+def throttle_frame(ms: int = 16):
+    """Artificially slows execution to mimic target frame times."""
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
             start = time.perf_counter()
             result = func(*args, **kwargs)
-            elapsed = time.perf_counter() - start
-            overbudget = elapsed > target_dt
-            if overbudget and strict:
-                time.sleep(max(0.0, target_dt - elapsed))
-            return result, elapsed, overbudget
+            elapsed = (time.perf_counter() - start) * 1000
+            sleep_time = (ms - elapsed) / 1000
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            return result
         return wrapper
     return decorator
 
-def quantize_frame_delta(delta_time: float, monitor_hz: int = 144) -> float:
-    """Snaps frame delta times to discrete monitor refresh v-sync ticks."""
-    if delta_time <= 0:
-        return 0.0
-    vsync_interval = 1.0 / monitor_hz
-    intervals = round(delta_time / vsync_interval)
-    return max(vsync_interval, intervals * vsync_interval)
+def memoize_resource(func: Callable):
+    """Cache heavy asset lookups in a local dictionary."""
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
 
-class FrameTimeHistogram:
-    """Fixed-bucket array for sub-millisecond stutter analysis."""
-    def __init__(self, max_ms: int = 100):
-        self.max_ms = max_ms
-        self.buckets = [0] * (max_ms + 1)
-        self.total_frames = 0
+def lerp(start: float, end: float, alpha: float) -> float:
+    """Linear interpolation for smooth camera or state transitions."""
+    return start + (end - start) * max(0.0, min(1.0, alpha))
 
-    def record(self, dt_seconds: float) -> None:
-        ms = min(self.max_ms, int(dt_seconds * 1000.0))
-        self.buckets[ms] += 1
-        self.total_frames += 1
+def clamp(value: float, min_val: float, max_val: float) -> float:
+    """Constraint logic for game world coordinates."""
+    return max(min_val, min(value, max_val))
 
-    def percentile(self, p: float) -> float:
-        if self.total_frames == 0:
-            return 0.0
-        target = math.ceil((p / 100.0) * self.total_frames)
-        accum = 0
-        for ms, count in enumerate(self.buckets):
-            accum += count
-            if accum >= target:
-                return ms / 1000.0
-        return self.max_ms / 1000.0
+def byte_size_formatter(size_bytes: int) -> str:
+    """Human readable memory consumption stats."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024:
+            return f"{size_bytes:.2f}{unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.2f}TB"
