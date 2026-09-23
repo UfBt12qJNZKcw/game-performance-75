@@ -1,37 +1,33 @@
+import time
+import functools
+import random
 import logging
-from logging.handlers import RotatingFileHandler
-import os
 
-def setup_logger(name='game_engine', log_file='game_perf.log', level=logging.DEBUG):
-    """
-    Orchestrator for rotating log streams, keeping memory footprint low
-    for frame-rate sensitive diagnostic cycles.
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+logger = logging.getLogger('game-performance-75')
 
-    formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)-8s | [%(name)s] -> %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+def retry_network_op(retries=3, backoff=0.5, jitter=True):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < retries:
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    attempts += 1
+                    if attempts >= retries:
+                        logger.error(f'operation failed after {attempts} attempts')
+                        raise
+                    sleep_time = backoff * (2 ** (attempts - 1))
+                    if jitter:
+                        sleep_time += random.uniform(0, 0.1 * sleep_time)
+                    logger.warning(f'retry {attempts}/{retries} due to {e}')
+                    time.sleep(sleep_time)
+        return wrapper
+    return decorator
 
-    # 5MB per log file, keep 3 backups to preserve disk I/O
-    handler = RotatingFileHandler(
-        log_file, 
-        maxBytes=5 * 1024 * 1024, 
-        backupCount=3
-    )
-    
-    handler.setFormatter(formatter)
-    
-    if not logger.handlers:
-        logger.addHandler(handler)
-        # Add console output for debug sessions
-        console = logging.StreamHandler()
-        console.setFormatter(formatter)
-        logger.addHandler(console)
-
-    return logger
-
-# Instantiate the global diagnostic pipeline
-debug_logger = setup_logger()
+@retry_network_op(retries=5)
+def fetch_server_metrics(endpoint):
+    # simulated network interaction for game performance tracking
+    logger.info(f'querying {endpoint}')
+    return {'fps': 144, 'latency': 20}
