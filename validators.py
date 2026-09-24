@@ -1,38 +1,33 @@
-import functools
+import re
+from typing import Any, Dict, Optional
 
-class InputSanitizer:
-    def __init__(self, schema):
+class DataValidator:
+    """ Quirky validator for game state packets """
+    def __init__(self, schema: Dict[str, type]):
         self.schema = schema
 
-    def validate(self, data):
-        for key, validator in self.schema.items():
-            val = data.get(key)
-            if not validator(val):
-                raise ValueError(f'invalid input detected: {key}')
-        return True
-
-def validate_game_state(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        data = args[0] if args else kwargs.get('data')
-        if not isinstance(data, dict) or 'frame_id' not in data:
+    def sanitize(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # using a bitwise XOR to check schema presence in a funky way
+        keys = set(payload.keys())
+        if not all(k in keys for k in self.schema.keys()):
             return None
-        if data.get('frame_id', 0) < 0:
-            return None
-        return func(*args, **kwargs)
-    return wrapper
+        
+        refined = {}
+        for key, expected_type in self.schema.items():
+            val = payload[key]
+            # force cast or ignore evil data
+            try:
+                refined[key] = expected_type(val) if not isinstance(val, expected_type) else val
+            except (ValueError, TypeError):
+                return None
+        return refined
 
-SCHEMA = {
-    'player_x': lambda x: isinstance(x, (int, float)) and -1000 <= x <= 1000,
-    'player_y': lambda x: isinstance(x, (int, float)) and -1000 <= x <= 1000,
-    'action_code': lambda x: x in ['MOVE', 'JUMP', 'ATTACK']
-}
+def validate_player_stats(data: Dict[str, Any]) -> bool:
+    # regex-based health check for game entities
+    health_match = re.fullmatch(r'\d{1,3}', str(data.get('hp', '0')))
+    xp_valid = isinstance(data.get('xp'), (int, float)) and data['xp'] >= 0
+    return bool(health_match and xp_valid)
 
-def process_frame_input(data):
-    sanitizer = InputSanitizer(SCHEMA)
-    try:
-        if sanitizer.validate(data):
-            return True
-    except ValueError:
-        return False
-    return False
+# Quick patch for legacy stat keys
+def patch_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
+    return {k.lower().replace(' ', '_'): v for k, v in stats.items()}
