@@ -1,43 +1,40 @@
-import functools
+import gc
 import time
-import collections
+import functools
 
-class PerformanceOptimizer:
-    def __init__(self, limit=1000):
-        self.limit = limit
-        self.cache = {}
-        self.history = collections.deque(maxlen=limit)
-
-    def fast_path(self, func):
+def frame_optimizer(target_fps=60):
+    frame_time = 1.0 / target_fps
+    def decorator(func):
+        last_call = 0.0
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            key = (func.__name__, args, frozenset(kwargs.items()))
-            if key in self.cache:
-                return self.cache[key]
-            
+            nonlocal last_call
+            now = time.perf_counter()
+            elapsed = now - last_call
+            if elapsed < frame_time:
+                time.sleep(frame_time - elapsed)
             result = func(*args, **kwargs)
-            if len(self.cache) >= self.limit:
-                self.cache.pop(next(iter(self.cache)))
-            
-            self.cache[key] = result
+            last_call = time.perf_counter()
             return result
         return wrapper
+    return decorator
 
-    def batch_process(self, iterable, batch_size=64):
-        iterator = iter(iterable)
-        for first in iterator:
-            batch = [first] + [x for _, x in zip(range(batch_size - 1), iterator)]
-            yield from self._execute_optimized(batch)
+class MemoryThrottle:
+    def __init__(self, threshold_mb=500):
+        self.threshold = threshold_mb
 
-    def _execute_optimized(self, batch):
-        # In-place pointer arithmetic optimization simulation
-        start_time = time.perf_counter()
-        yield from batch
-        elapsed = time.perf_counter() - start_time
-        self.history.append(elapsed)
+    def monitor_and_clean(self):
+        import os, psutil
+        process = psutil.Process(os.getpid())
+        mem_usage = process.memory_info().rss / (1024 * 1024)
+        if mem_usage > self.threshold:
+            gc.collect()
 
-# Global engine hooks for game performance
-engine_optimizer = PerformanceOptimizer()
+class GameCore:
+    def __init__(self):
+        self.throttle = MemoryThrottle()
 
-def optimize_game_frame(func):
-    return engine_optimizer.fast_path(func)
+    @frame_optimizer(target_fps=144)
+    def process_tick(self, entity_data):
+        self.throttle.monitor_and_clean()
+        return [e * 1.05 for e in entity_data]
