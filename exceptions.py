@@ -1,32 +1,27 @@
-from typing import Optional, Any
+from typing import Optional, Dict, Any
 
 class PerformanceError(Exception):
-    """Base exception for all game-performance-75 performance bottlenecks."""
-    def __init__(self, message: str, severity: int = 1) -> None:
+    """Base exception for game-performance-75 performance anomalies."""
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(message)
-        self.severity: int = severity
+        self.context: Dict[str, Any] = context or {}
 
 class FrameDropError(PerformanceError):
-    """Raised when frame timing deviates beyond acceptable thresholds."""
+    """Raised when frame latency exceeds the configured threshold."""
     def __init__(self, fps: float, target: float) -> None:
-        super().__init__(f"Critical frame drop: {fps:.2f} FPS (Target: {target:.2f})", severity=2)
-        self.fps: float = fps
-        self.target: float = target
+        super().__init__(f"frame rate dropped to {fps}, target was {target}", {"fps": fps, "target": target})
 
-class ResourceLeakWarning(PerformanceError):
-    """Raised when memory heap growth exceeds defined heap limits."""
-    def __init__(self, memory_usage: float, limit: float, context: Optional[str] = None) -> None:
-        msg = f"Memory bloat detected: {memory_usage:.2f}MB/{limit:.2f}MB in {context or 'unknown context'}"
-        super().__init__(msg, severity=3)
-        self.usage: float = memory_usage
+class MemoryLeakWarning(PerformanceError):
+    """Signal potential memory bloat during gameplay runtime."""
+    def __init__(self, usage_mb: float) -> None:
+        super().__init__(f"memory usage exceeded safety limit: {usage_mb}MB", {"usage": usage_mb})
 
-class ThrottleInterrupt(PerformanceError):
-    """An intentional pause signal to allow system resource cooling."""
-    def __init__(self, duration: float, reason: str = "thermal") -> None:
-        super().__init__(f"System throttling for {duration}s due to {reason}", severity=1)
-        self.duration: float = duration
+class AssetLoadTimeout(PerformanceError):
+    """Raised when an asset fails to resolve within the frame budget."""
+    def __init__(self, asset_id: str, elapsed: float) -> None:
+        super().__init__(f"asset {asset_id} took {elapsed}s to load", {"id": asset_id, "time": elapsed})
 
-def raise_if_bottleneck(condition: bool, error_type: type, **kwargs: Any) -> None:
-    """Dynamic trigger for performance violation exceptions."""
-    if condition:
-        raise error_type(**kwargs)
+def format_exception_context(exc: PerformanceError) -> str:
+    """Serialization of exception context for diagnostic logs."""
+    details = ", ".join(f"{k}={v}" for k, v in exc.context.items())
+    return f"{exc.__class__.__name__}: {str(exc)} [{details}]"
