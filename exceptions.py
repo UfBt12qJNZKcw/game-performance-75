@@ -1,27 +1,31 @@
-from typing import Optional, Dict, Any
+import time
+import functools
+import random
 
-class PerformanceError(Exception):
-    """Base exception for game-performance-75 performance anomalies."""
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__(message)
-        self.context: Dict[str, Any] = context or {}
+class NetworkError(Exception):
+    pass
 
-class FrameDropError(PerformanceError):
-    """Raised when frame latency exceeds the configured threshold."""
-    def __init__(self, fps: float, target: float) -> None:
-        super().__init__(f"frame rate dropped to {fps}, target was {target}", {"fps": fps, "target": target})
+def retry_operation(retries=3, delay=1.0, backoff=2):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except NetworkError as e:
+                    if attempt == retries - 1:
+                        raise e
+                    time.sleep(current_delay + random.uniform(0, 0.1))
+                    current_delay *= backoff
+        return wrapper
+    return decorator
 
-class MemoryLeakWarning(PerformanceError):
-    """Signal potential memory bloat during gameplay runtime."""
-    def __init__(self, usage_mb: float) -> None:
-        super().__init__(f"memory usage exceeded safety limit: {usage_mb}MB", {"usage": usage_mb})
-
-class AssetLoadTimeout(PerformanceError):
-    """Raised when an asset fails to resolve within the frame budget."""
-    def __init__(self, asset_id: str, elapsed: float) -> None:
-        super().__init__(f"asset {asset_id} took {elapsed}s to load", {"id": asset_id, "time": elapsed})
-
-def format_exception_context(exc: PerformanceError) -> str:
-    """Serialization of exception context for diagnostic logs."""
-    details = ", ".join(f"{k}={v}" for k, v in exc.context.items())
-    return f"{exc.__class__.__name__}: {str(exc)} [{details}]"
+class ConnectionHandler:
+    @staticmethod
+    @retry_operation(retries=5, delay=0.5)
+    def fetch_game_data(endpoint):
+        # Simulated network state for game performance monitoring
+        if random.random() < 0.7:
+            raise NetworkError(f"Latency spike at {endpoint}")
+        return {"status": "ready", "payload": [120, 144, 240]}
