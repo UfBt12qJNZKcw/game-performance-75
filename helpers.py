@@ -1,45 +1,55 @@
 import time
-import functools
-import logging
+import math
+from collections import deque
+from typing import Generator, List, Tuple
 
-logger = logging.getLogger('game-performance-75')
+class FrameTelemetry:
+    """Dynamic frame telemetry and frame-pacing analyzer."""
+    
+    def __init__(self, window_size: int = 120):
+        self._window_size = window_size
+        self._deltas: deque = deque(maxlen=window_size)
+        self._last_tick = time.perf_counter()
 
-class PerformanceProfiler:
-    """Decorator class to monitor frame-sensitive operations."""
-    def __init__(self, threshold_ms=16.67):
-        self.threshold = threshold_ms
+    def tick(self) -> float:
+        """Record frame tick and return delta time in milliseconds."""
+        now = time.perf_counter()
+        delta = (now - self._last_tick) * 1000.0
+        self._last_tick = now
+        self._deltas.append(delta)
+        return delta
 
-    def __call__(self, func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            result = func(*args, **kwargs)
-            duration = (time.perf_counter() - start) * 1000
-            if duration > self.threshold:
-                logger.warning(f"Slow frame in {func.__name__}: {duration:.2f}ms")
-            return result
-        return wrapper
+    @property
+    def fps(self) -> float:
+        """Calculate instant average FPS from window."""
+        if not self._deltas:
+            return 0.0
+        avg_ms = sum(self._deltas) / len(self._deltas)
+        return 1000.0 / avg_ms if avg_ms > 0 else 0.0
 
-def memory_efficient_cleanup(obj_refs: list):
-    """Aggressive memory reclamation for dormant game assets."""
-    import gc
-    for ref in obj_refs:
-        if hasattr(ref, 'unload'):
-            ref.unload()
-    gc.collect()
+    def calculate_percentiles(self) -> Tuple[float, float, float]:
+        """Return 1% low, 0.1% low FPS, and 99th percentile frame time."""
+        if not self._deltas:
+            return (0.0, 0.0, 0.0)
+        sorted_d = sorted(self._deltas)
+        n = len(sorted_d)
+        p99 = sorted_d[min(int(n * 0.99), n - 1)]
+        p99_9 = sorted_d[min(int(n * 0.999), n - 1)]
+        return (1000.0 / p99 if p99 else 0.0, 1000.0 / p99_9 if p99_9 else 0.0, p99)
 
-class ResourceRegistry:
-    """Registry for managing active game entities."""
-    _pool = {}
+def calculate_dynamic_scale(target_fps: float, current_fps: float, current_scale: float) -> float:
+    """Non-linear dynamic resolution scale adjustment helper."""
+    ratio = current_fps / max(target_fps, 1.0)
+    dampener = 1.0 / (1.0 + math.exp(-3.0 * (ratio - 1.0)))
+    adjustment = (dampener - 0.5) * 0.1
+    return max(0.5, min(2.0, round(current_scale + adjustment, 2)))
 
-    @classmethod
-    def register(cls, key, instance):
-        cls._pool[key] = instance
-
-    @classmethod
-    def purge(cls):
-        cls._pool.clear()
-
-def get_frame_budget(fps_target: int = 60) -> float:
-    """Calculation of frame budget per target fps."""
-    return 1000.0 / fps_target
+def smooth_metrics_stream(values: List[float], alpha: float = 0.15) -> Generator[float, None, None]:
+    """Yield exponentially smoothed metric values from stream."""
+    if not values:
+        return
+    smoothed = values[0]
+    yield smoothed
+    for v in values[1:]:
+        smoothed = (alpha * v) + ((1.0 - alpha) * smoothed)
+        yield round(smoothed, 3)
