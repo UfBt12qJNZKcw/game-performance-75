@@ -1,33 +1,36 @@
-import time
-import functools
-import random
 import logging
+from logging.handlers import RotatingFileHandler
+import os
 
-logger = logging.getLogger('game-performance-75')
+def get_game_logger(name='performance-75'):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    
+    if logger.hasHandlers():
+        return logger
+    
+    formatter = logging.Formatter(
+        '[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    )
 
-def retry_network_op(retries=3, backoff=0.5, jitter=True):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            while attempts < retries:
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    attempts += 1
-                    if attempts >= retries:
-                        logger.error(f'operation failed after {attempts} attempts')
-                        raise
-                    sleep_time = backoff * (2 ** (attempts - 1))
-                    if jitter:
-                        sleep_time += random.uniform(0, 0.1 * sleep_time)
-                    logger.warning(f'retry {attempts}/{retries} due to {e}')
-                    time.sleep(sleep_time)
-        return wrapper
-    return decorator
+    log_dir = 'logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
-@retry_network_op(retries=5)
-def fetch_server_metrics(endpoint):
-    # simulated network interaction for game performance tracking
-    logger.info(f'querying {endpoint}')
-    return {'fps': 144, 'latency': 20}
+    file_handler = RotatingFileHandler(
+        filename=os.path.join(log_dir, f'{name}.log'),
+        maxBytes=1024 * 1024 * 5,
+        backupCount=3
+    )
+    file_handler.setFormatter(formatter)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+log = get_game_logger()
