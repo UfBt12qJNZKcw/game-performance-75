@@ -2,53 +2,52 @@
 
 # game-performance-75
 
-`game-performance-75` is a lightweight Python telemetry tool designed to capture frame time consistency and hardware resource utilization during active gaming sessions. It analyzes real-time system metrics to help gamers pinpoint micro-stutter, evaluate 75 FPS performance targets, and optimize graphics configurations.
+`game-performance-75` is a lightweight Python-based telemetry library designed to monitor, log, and analyze real-time frame rates and hardware utilization for PC games. It provides game developers and hardware testers with actionable performance insights, specifically optimized for targets like stable 75 FPS gaming on high-refresh-rate monitors.
 
 ## Features
 
-- **Frame Time & Lows Tracking**: Logs 1% and 0.1% low FPS metrics alongside hardware telemetry to accurately reflect perceived smoothness.
-- **Stutter Detection Algorithm**: Flags any render frame times exceeding the 13.33ms baseline window required for stable 75Hz display output.
-- **Automated Visual Reports**: Generates HTML performance summaries with interactive matplotlib plots showing CPU/GPU temperature and clock speed correlation.
-- **Low-Overhead Execution**: Runs as an asynchronous background process with sub-1% CPU usage, preventing benchmark skewing.
+* **Real-time Telemetry Logging**: Captures raw frame times, CPU/GPU temperatures, and VRAM overhead on a millisecond-precision interval.
+* **Micro-Stutter Detection**: Automatically flags frame drops below the 75 FPS target and calculates 1% low metrics.
+* **Zero-overhead Architecture**: Runs on a background thread using asynchronous I/O to ensure the monitoring process does not degrade game engine performance.
+* **Portable Reports**: Exports session telemetry to structured JSON or CSV files for post-match analysis.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed, then run:
+Install the package and its hardware telemetry dependencies via pip:
 
 ```bash
-git clone https://github.com/Developer/game-performance-75.git
-cd game-performance-75
-pip install -r requirements.txt
-python setup.py install
+pip install game-performance-75
 ```
 
-## Quick Start
+Note: Windows users may need to run this command in an administrator terminal to allow the CPU temperature probes to bind correctly.
 
-Start a session recorder in your Python script or integrate it into your automated benchmarks:
+## Usage
+
+A basic example of monitoring a game session and extracting performance metrics:
 
 ```python
-from game_perf75 import TelemetryMonitor, ReportGenerator
+import time
+from gp75 import SessionMonitor
 
-# Initialize monitor tuned for a 75 FPS baseline target
-monitor = TelemetryMonitor(target_fps=75, sampling_rate_ms=100)
+# Initialize the monitor targeting a 75 FPS baseline
+monitor = SessionMonitor(target_fps=75, sample_rate_ms=10)
 
-# Start logging during gameplay
-monitor.start("Cyberpunk2077_HighSettings")
+print("Starting performance tracking...")
+monitor.start_session()
 
-# ... run your game or benchmark loop ...
+# Simulate your game loop
+for frame in range(500):
+    time.sleep(0.0133) # Simulate ~75 FPS frame pacing
+    monitor.tick()
 
-# Stop logging and build the HTML report
-log_path = monitor.stop()
-report = ReportGenerator(log_path)
-report.to_html("performance_summary.html")
-```
+# End telemetry and export data
+session_results = monitor.end_session(export_path="game_results.json")
 
-To run directly from the command line:
-
-```bash
-python -m game_perf75 --duration 300 --output session_log.json
+print(f"Session Complete!")
+print(f"Average FPS: {session_results['avg_fps']:.2f}")
+print(f"Time spent below 75 FPS: {session_results['pct_below_target']}%")
 ```
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
