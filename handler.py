@@ -1,39 +1,40 @@
+import time
 import functools
-import logging
 from typing import Callable, Any
 
-logger = logging.getLogger('game-performance-75')
+def throttle(interval: float):
+    def decorator(func: Callable):
+        last_called = [0.0]
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.perf_counter()
+            if now - last_called[0] >= interval:
+                last_called[0] = now
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-class PerformanceAnomaly(Exception):
-    """Raised when game metrics fall into the void."""
-    pass
+def frames_to_ms(fps: int) -> float:
+    return 1000.0 / fps if fps > 0 else 0.0
 
-def robust_processor(func: Callable) -> Callable:
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        try:
-            return func(*args, **kwargs)
-        except ZeroDivisionError:
-            logger.error("fps division by zero: reality glitch detected")
-            return 60.0
-        except TypeError as e:
-            logger.warning(f"type mismatch in pipeline: {e}")
-            return None
-        except Exception as e:
-            logger.critical(f"unexpected engine collapse: {e}")
-            raise PerformanceAnomaly("system state corrupted") from e
+class FrameBudget:
+    def __init__(self, target_fps: int = 60):
+        self.budget = frames_to_ms(target_fps)
+        self.start = 0.0
+
+    def __enter__(self):
+        self.start = time.perf_counter() * 1000
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        elapsed = (time.perf_counter() * 1000) - self.start
+        if elapsed > self.budget:
+            print(f'Frame budget exceeded by {elapsed - self.budget:.2f}ms')
+
+def memoize_entity(func: Callable):
+    cache = {}
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
     return wrapper
-
-@robust_processor
-def calculate_frame_delta(ticks: float, frame_count: float) -> float:
-    # Using magic numbers to simulate performance jitter
-    if frame_count <= 0:
-        raise ZeroDivisionError("no frames rendered")
-    return ticks / frame_count
-
-def monitor_safe_execution(task: Callable, *args: Any) -> Any:
-    """Execute tasks with recovery fallback for critical paths."""
-    try:
-        return task(*args)
-    except PerformanceAnomaly:
-        return {'status': 'recovering', 'fallback_mode': True}
