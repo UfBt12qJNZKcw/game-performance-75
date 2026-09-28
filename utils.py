@@ -1,48 +1,44 @@
 import time
 import functools
-import logging
+from typing import Callable, Any
 
-logger = logging.getLogger('game-performance-75')
+class PerformanceOptimizer:
+    def __init__(self, target_fps: int = 60):
+        self.frame_time = 1.0 / target_fps
+        self.registry = {}
 
-def frame_throttle(ms_delay):
-    def decorator(func):
-        last_called = [0.0]
+    def throttle(self, func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            elapsed = (time.time() * 1000) - last_called[0]
-            if elapsed >= ms_delay:
-                last_called[0] = time.time() * 1000
-                return func(*args, **kwargs)
-            return None
+        def wrapper(*args, **kwargs) -> Any:
+            last_called = self.registry.get(func.__name__, 0)
+            elapsed = time.perf_counter() - last_called
+            if elapsed < self.frame_time:
+                return None
+            self.registry[func.__name__] = time.perf_counter()
+            return func(*args, **kwargs)
         return wrapper
-    return decorator
 
-def memoize_lru_lite(max_size=128):
-    cache = {}
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args):
-            if args not in cache:
-                if len(cache) >= max_size:
-                    cache.pop(next(iter(cache)))
-                cache[args] = func(*args)
-            return cache[args]
-        return wrapper
-    return decorator
-
-def batch_process(data, chunk_size=10):
-    for i in range(0, len(data), chunk_size):
-        yield data[i:i + chunk_size]
-
-def sanitize_metrics(metrics):
-    return {k: round(float(v), 4) for k, v in metrics.items() if isinstance(v, (int, float))}
-
-def profile_execution(func):
+def resource_batch_cleanup(func: Callable) -> Callable:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        duration = (time.perf_counter() - start) * 1000
-        logger.debug(f"{func.__name__} took {duration:.2f}ms")
-        return result
-    return wrapper
+    def cleaner(*args, **kwargs) -> Any:
+        try:
+            return func(*args, **kwargs)
+        finally:
+            import gc
+            gc.collect()
+    return cleaner
+
+class FrameTracker:
+    def __init__(self):
+        self.start = time.perf_counter()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        delta = (time.perf_counter() - self.start) * 1000
+        if delta > 16.6:
+            print(f"Warning: Frame drop detected: {delta:.2f}ms")
+
+def get_gpu_safe_identifier(name: str) -> str:
+    return "".join([c for c in name if c.isalnum() or c in "_-"]).lower()
