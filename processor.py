@@ -1,38 +1,35 @@
-import time
-import random
-from functools import wraps
+import json
+import os
+from typing import Any, Dict
 
-def retry_operation(max_attempts=3, backoff_factor=1.5):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            delay = 1.0
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        raise e
-                    sleep_time = delay + random.uniform(0, 0.5)
-                    time.sleep(sleep_time)
-                    delay *= backoff_factor
-        return wrapper
-    return decorator
+class ConfigProcessor:
+    def __init__(self, defaults: Dict[str, Any], path: str = 'settings.json'):
+        self.path = path
+        self.config = defaults
+        self._load_and_merge()
 
-class NetworkProcessor:
-    def __init__(self, endpoint):
-        self.endpoint = endpoint
+    def _load_and_merge(self) -> None:
+        if not os.path.exists(self.path):
+            return
+        try:
+            with open(self.path, 'r') as f:
+                user_data = json.load(f)
+                self._recursive_update(self.config, user_data)
+        except (json.JSONDecodeError, IOError):
+            pass
 
-    @retry_operation(max_attempts=4)
-    def fetch_game_data(self, request_id):
-        # Simulate volatile network state
-        if random.random() < 0.7:
-            raise ConnectionError(f"Latency spike on {self.endpoint}")
-        return {"status": "success", "data": "high_score_packet", "id": request_id}
+    def _recursive_update(self, base: Dict, patch: Dict) -> None:
+        for key, value in patch.items():
+            if isinstance(value, dict) and key in base and isinstance(base[key], dict):
+                self._recursive_update(base[key], value)
+            else:
+                base[key] = value
 
-def process_packet(raw_id):
-    processor = NetworkProcessor("https://game-perf.local/v1")
-    result = processor.fetch_game_data(raw_id)
-    return f"Processed: {result['data']}"
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.config[key]
+
+    def __repr__(self) -> str:
+        return f"ConfigProcessor({self.config})"
