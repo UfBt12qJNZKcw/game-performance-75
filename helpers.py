@@ -1,40 +1,41 @@
 import time
-from functools import wraps
-import gc
+import functools
+import logging
 
-def throttle(interval):
+def throttle(interval_ms):
     def decorator(func):
         last_called = [0.0]
-        @wraps(func)
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            now = time.perf_counter()
-            if now - last_called[0] >= interval:
+            now = time.perf_counter() * 1000
+            if now - last_called[0] >= interval_ms:
                 last_called[0] = now
                 return func(*args, **kwargs)
         return wrapper
     return decorator
 
-def memory_cleanup(func):
-    @wraps(func)
+def frame_timer(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        start = time.perf_counter()
         result = func(*args, **kwargs)
-        gc.collect()
+        duration = (time.perf_counter() - start) * 1000
+        if duration > 16.67:
+            logging.warning(f'frame budget exceeded: {duration:.2f}ms in {func.__name__}')
         return result
     return wrapper
 
-def frame_budget(limit_ms):
+def memoize_buffer(capacity=128):
     def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            result = func(*args, **kwargs)
-            elapsed = (time.perf_counter() - start) * 1000
-            if elapsed > limit_ms:
-                print(f"Warning: {func.__name__} exceeded budget: {elapsed:.2f}ms")
-            return result
+        cache = {}
+        def wrapper(*args):
+            if args not in cache:
+                if len(cache) >= capacity:
+                    cache.pop(next(iter(cache)))
+                cache[args] = func(*args)
+            return cache[args]
         return wrapper
     return decorator
 
-def batch_process(data, chunk_size=100):
-    for i in range(0, len(data), chunk_size):
-        yield data[i:i + chunk_size]
+def lerp(a, b, t):
+    return a + (b - a) * min(max(t, 0.0), 1.0)
