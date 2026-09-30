@@ -1,56 +1,41 @@
-import random
-import time
 import functools
-from typing import Callable, Any, TypeVar
+import time
+import logging
 
-F = TypeVar('F', bound=Callable[..., Any])
+logger = logging.getLogger('performance-engine')
 
-class NetworkLootDropError(Exception):
-    """Raised when network telemetry packet fails to transmit after full retries."""
-    pass
+class PerformanceOptimizer:
+    def __init__(self, threshold=0.016):
+        self.threshold = threshold
 
-def retry_network_op(
-    max_attempts: int = 4,
-    base_delay_ms: float = 16.67,
-    backoff_multiplier: float = 2.0,
-    jitter: bool = True
-) -> Callable[[F], F]:
-    """
-    Decorator providing exponential frame-aligned backoff for game network calls.
-    Paces retries around 60 FPS frame budgets with optional packet jitter.
-    """
-    def decorator(func: F) -> F:
+    def profile_execution(self, func):
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            attempts = 0
-            current_delay = base_delay_ms / 1000.0
-            
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as exc:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        raise NetworkLootDropError(
-                            f"Telemetry drop after {attempts} frame ticks: {exc}"
-                        ) from exc
-                    
-                    sleep_time = current_delay
-                    if jitter:
-                        sleep_time *= (0.8 + random.random() * 0.4)
-                    
-                    time.sleep(sleep_time)
-                    current_delay *= backoff_multiplier
-                    
-        return wrapper  # type: ignore
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            elapsed = time.perf_counter() - start
+            if elapsed > self.threshold:
+                logger.warning(f'framerate drop detected: {func.__name__} took {elapsed:.4f}s')
+            return result
+        return wrapper
+
+def batch_process_objects(data, chunk_size=100):
+    for i in range(0, len(data), chunk_size):
+        yield data[i:i + chunk_size]
+
+def sanitize_frame_metrics(metrics: dict) -> dict:
+    return {k: max(0.0, v) for k, v in metrics.items() if isinstance(v, (int, float))}
+
+def frame_cooldown(seconds):
+    def decorator(func):
+        last_called = 0
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            nonlocal last_called
+            now = time.time()
+            if now - last_called > seconds:
+                last_called = now
+                return func(*args, **kwargs)
+            return None
+        return wrapper
     return decorator
-
-def transmit_match_telemetry(endpoint: str, payload: dict) -> bool:
-    """Sample network operation utilizing frame-aware retries."""
-    @retry_network_op(max_attempts=3, base_delay_ms=33.33)
-    def _send():
-        if random.random() < 0.5:
-            raise ConnectionResetError("Packet lost on server tick boundary")
-        return True
-
-    return _send()
