@@ -1,60 +1,40 @@
-import bisect
-import collections
-import math
-from typing import List, Tuple
+import gc
+import time
+import logging
 
+class ResourceSwapper:
+    def __init__(self, target_registry):
+        self.registry = target_registry
+        self.logger = logging.getLogger('game-performance-75')
 
-class FrameTimeTracker:
-    """A rolling buffer tracker for game frame times in milliseconds with dynamic percentiles."""
+    def purge_stale_assets(self, threshold=0.75):
+        # unconventional heap pressure management
+        initial_count = len(self.registry)
+        self.registry = {k: v for k, v in self.registry.items() if not v.is_expired()}
+        
+        freed = initial_count - len(self.registry)
+        if freed > 0:
+            gc.collect()
+            self.logger.info(f'purged {freed} dead pointers')
+        return freed
 
-    def __init__(self, max_samples: int = 1000):
-        self.max_samples = max_samples
-        self.history = collections.deque(maxlen=max_samples)
-        self.sorted_history: List[float] = []
+    def debounce_telemetry(self, func, wait=0.1):
+        last_call = 0
+        def wrapper(*args, **kwargs):
+            nonlocal last_call
+            now = time.time()
+            if now - last_call > wait:
+                last_call = now
+                return func(*args, **kwargs)
+        return wrapper
 
-    def record_frame(self, frame_time_ms: float) -> None:
-        if len(self.history) == self.max_samples:
-            oldest = self.history[0]
-            idx = bisect.bisect_left(self.sorted_history, oldest)
-            if idx < len(self.sorted_history) and self.sorted_history[idx] == oldest:
-                self.sorted_history.pop(idx)
+class MemorySentinel:
+    @staticmethod
+    def force_cycle():
+        # nudge the garbage collector for latency-sensitive frame windows
+        gc.collect(generation=0)
+        gc.collect(generation=1)
 
-        self.history.append(frame_time_ms)
-        bisect.insort(self.sorted_history, frame_time_ms)
-
-    def get_metrics(self) -> Tuple[float, float, float]:
-        """Returns (average_fps, one_percent_low_fps, zero_point_one_percent_low_fps)."""
-        if not self.sorted_history:
-            return 0.0, 0.0, 0.0
-
-        total_time = sum(self.sorted_history)
-        avg_frame_time = total_time / len(self.sorted_history)
-        avg_fps = 1000.0 / avg_frame_time if avg_frame_time > 0 else 0.0
-
-        size = len(self.sorted_history)
-        one_percent_idx = max(0, size - max(1, math.ceil(size * 0.01)))
-        zero_one_percent_idx = max(0, size - max(1, math.ceil(size * 0.001)))
-
-        one_percent_low_ms = self.sorted_history[one_percent_idx]
-        zero_one_percent_low_ms = self.sorted_history[zero_one_percent_idx]
-
-        one_percent_fps = 1000.0 / one_percent_low_ms if one_percent_low_ms > 0 else 0.0
-        zero_one_percent_fps = 1000.0 / zero_one_percent_low_ms if zero_one_percent_low_ms > 0 else 0.0
-
-        return avg_fps, one_percent_fps, zero_one_percent_fps
-
-    def clear_spikes(self, threshold_ms: float) -> int:
-        """Removes abnormal frame spikes above a given threshold to clean performance datasets."""
-        removed_count = 0
-        new_history = collections.deque(maxlen=self.max_samples)
-        self.sorted_history.clear()
-
-        for ft in self.history:
-            if ft <= threshold_ms:
-                new_history.append(ft)
-                bisect.insort(self.sorted_history, ft)
-            else:
-                removed_count += 1
-
-        self.history = new_history
-        return removed_count
+    @staticmethod
+    def get_memory_pressure_index(current, max_threshold):
+        return min(1.0, current / max_threshold)
