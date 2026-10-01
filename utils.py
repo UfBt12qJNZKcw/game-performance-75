@@ -1,40 +1,46 @@
 import gc
 import time
-import logging
+import psutil
+from typing import Callable, Any
 
-class ResourceSwapper:
-    def __init__(self, target_registry):
-        self.registry = target_registry
-        self.logger = logging.getLogger('game-performance-75')
+class MemoryManager:
+    def __init__(self, threshold_mb: float = 512.0):
+        self.threshold = threshold_mb
 
-    def purge_stale_assets(self, threshold=0.75):
-        # unconventional heap pressure management
-        initial_count = len(self.registry)
-        self.registry = {k: v for k, v in self.registry.items() if not v.is_expired()}
-        
-        freed = initial_count - len(self.registry)
-        if freed > 0:
-            gc.collect()
-            self.logger.info(f'purged {freed} dead pointers')
-        return freed
-
-    def debounce_telemetry(self, func, wait=0.1):
-        last_call = 0
+    def __call__(self, func: Callable) -> Callable:
         def wrapper(*args, **kwargs):
-            nonlocal last_call
-            now = time.time()
-            if now - last_call > wait:
-                last_call = now
-                return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            self._auto_purge()
+            return result
         return wrapper
 
-class MemorySentinel:
-    @staticmethod
-    def force_cycle():
-        # nudge the garbage collector for latency-sensitive frame windows
-        gc.collect(generation=0)
-        gc.collect(generation=1)
+    def _auto_purge(self):
+        process = psutil.Process()
+        mem_info = process.memory_info().rss / (1024 * 1024)
+        if mem_info > self.threshold:
+            gc.collect()
 
-    @staticmethod
-    def get_memory_pressure_index(current, max_threshold):
-        return min(1.0, current / max_threshold)
+class FrameThrottle:
+    def __init__(self, fps: int = 60):
+        self.interval = 1.0 / fps
+        self.last_frame = time.perf_counter()
+
+    def wait(self):
+        elapsed = time.perf_counter() - self.last_frame
+        if elapsed < self.interval:
+            time.sleep(self.interval - elapsed)
+        self.last_frame = time.perf_counter()
+
+def sanitize_metrics(data: dict) -> dict:
+    return {str(k): float(v) for k, v in data.items() if isinstance(v, (int, float))}
+
+class PerformanceRegistry:
+    _storage = {}
+
+    @classmethod
+    def track(cls, key: str, value: Any):
+        cls._storage[key] = value
+
+    @classmethod
+    def dump(cls):
+        return dict(cls._storage)
