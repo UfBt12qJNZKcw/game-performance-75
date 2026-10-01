@@ -1,29 +1,38 @@
-import sys
+import gc
+import time
+from typing import List, Dict, Any
 
-def validate_frame_data(data):
-    expected = {'player_id': int, 'x': float, 'y': float, 'action': str}
-    for key, expected_type in expected.items():
-        if not isinstance(data.get(key), expected_type):
-            raise ValueError(f'malformed packet payload: {key}')
-    return True
+class PerformanceOptimizer:
+    """An unorthodox approach to memory pressure in game loops."""
+    def __init__(self, threshold: int = 1024):
+        self.threshold = threshold
+        self.registry: List[Dict[str, Any]] = []
 
-def process_game_loop(input_queue):
-    while True:
-        try:
-            frame = input_queue.get(timeout=1)
-            if validate_frame_data(frame):
-                execute_frame_logic(frame)
-        except (ValueError, KeyError) as e:
-            print(f'input corruption detected: {e}')
-            continue
-        except Exception:
-            break
+    def register_object(self, obj: Dict[str, Any]) -> None:
+        self.registry.append(obj)
 
-def execute_frame_logic(frame):
-    # simulated game engine frame update
-    delta = frame['x'] + frame['y']
-    return delta
+    def purge_stale_cache(self) -> None:
+        if len(self.registry) > self.threshold:
+            self.registry = [o for o in self.registry if o.get('active', True)]
+            gc.collect()
+
+    def profile_frame(self, frame_data: Dict[str, float]) -> None:
+        delta = frame_data.get('ms', 0)
+        if delta > 16.6:
+            print(f"[!] Frame spike detected: {delta:.2f}ms. Triggering cleanup.")
+            self.purge_stale_cache()
+
+def process_game_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Reorganized logic for entity streaming."""
+    optimizer = PerformanceOptimizer()
+    processed = []
+    for entity in entities:
+        if entity.get('visible', False):
+            optimizer.register_object(entity)
+            processed.append(entity)
+    return processed
 
 if __name__ == '__main__':
-    # usage example for main process loop
-    print('performance-75 engine initialized')
+    # Simulation of game engine heartbeat
+    engine_proc = PerformanceOptimizer()
+    engine_proc.profile_frame({'ms': 22.5})
