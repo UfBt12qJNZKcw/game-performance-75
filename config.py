@@ -1,28 +1,38 @@
-from typing import Dict, Any, Union
-from dataclasses import dataclass
+import os
+import json
+from typing import Any, Dict
 
-@dataclass(frozen=True)
-class EngineSettings:
-    """Immutable configuration container for game engine tuning parameters."""
-    fps_cap: int = 144
-    use_multithreading: bool = True
-    buffer_size: int = 4096
+class GameConfig:
+    def __init__(self, path: str = 'settings.json'):
+        self.path = path
+        self.defaults = {
+            'fps_limit': 144,
+            'render_scale': 1.0,
+            'vsync': True,
+            'audio_gain': 0.8
+        }
+        self._data = self._load_or_default()
 
-def load_game_config(raw_data: Dict[str, Union[int, bool]]) -> EngineSettings:
-    """Parses dictionary input into strict EngineSettings via mapping."""
-    return EngineSettings(
-        fps_cap=int(raw_data.get("fps_cap", 60)),
-        use_multithreading=bool(raw_data.get("use_multithreading", True)),
-        buffer_size=int(raw_data.get("buffer_size", 2048))
-    )
+    def _load_or_default(self) -> Dict[str, Any]:
+        if not os.path.exists(self.path):
+            return self.defaults.copy()
+        try:
+            with open(self.path, 'r') as f:
+                loaded = json.load(f)
+                return {**self.defaults, **loaded}
+        except (json.JSONDecodeError, IOError):
+            return self.defaults.copy()
 
-def get_environment_defaults() -> Dict[str, Any]:
-    """Generates default registry for runtime engine environment."""
-    return {
-        "gpu_acceleration": True,
-        "v_sync": False,
-        "shader_cache_path": "./cache/shaders"
-    }
+    def __getitem__(self, key: str) -> Any:
+        return self._data.get(key, self.defaults.get(key))
 
-# Configuration injection for performance optimization context
-GLOBAL_CONFIG: EngineSettings = EngineSettings(fps_cap=240, use_multithreading=True)
+    def __getattr__(self, name: str) -> Any:
+        if name in self._data:
+            return self._data[name]
+        raise AttributeError(f'Config key {name} missing')
+
+    def save(self):
+        with open(self.path, 'w') as f:
+            json.dump(self._data, f, indent=4)
+
+config = GameConfig()
