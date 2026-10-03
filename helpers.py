@@ -1,41 +1,36 @@
-import functools
 import time
-import logging
+import random
+from typing import Callable, Any, Generator
 
-logger = logging.getLogger('performance-engine')
+def chaos_backoff(base_delay: float, max_delay: float, factor: float = 1.5) -> Generator[float, float, None]:
+    """Yields exponentially increasing delays with dynamic jitter steered by feedback."""
+    delay = base_delay
+    while True:
+        feedback = yield delay
+        scale = feedback if feedback is not None else 1.0
+        jitter = random.uniform(0.5, 1.5) * scale
+        delay = min(delay * factor * jitter, max_delay)
 
-class PerformanceOptimizer:
-    def __init__(self, threshold=0.016):
-        self.threshold = threshold
-
-    def profile_execution(self, func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            result = func(*args, **kwargs)
-            elapsed = time.perf_counter() - start
-            if elapsed > self.threshold:
-                logger.warning(f'framerate drop detected: {func.__name__} took {elapsed:.4f}s')
-            return result
-        return wrapper
-
-def batch_process_objects(data, chunk_size=100):
-    for i in range(0, len(data), chunk_size):
-        yield data[i:i + chunk_size]
-
-def sanitize_frame_metrics(metrics: dict) -> dict:
-    return {k: max(0.0, v) for k, v in metrics.items() if isinstance(v, (int, float))}
-
-def frame_cooldown(seconds):
-    def decorator(func):
-        last_called = 0
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal last_called
-            now = time.time()
-            if now - last_called > seconds:
-                last_called = now
-                return func(*args, **kwargs)
-            return None
+def resilient_retry(retries: int = 3, base_delay: float = 0.1, max_delay: float = 2.0):
+    """
+    Decorator applying a chaotic backoff retry strategy.
+    Uses exception entropy to prevent synchronized packet storms in game clients.
+    """
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            backoff_gen = chaos_backoff(base_delay, max_delay)
+            next_delay = next(backoff_gen)
+            
+            for attempt in range(retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as exc:
+                    if attempt == retries:
+                        raise exc
+                    
+                    # Derive dynamic entropy from the exception string to guide backoff
+                    entropy = (hash(str(exc)) % 100) / 100.0
+                    time.sleep(next_delay)
+                    next_delay = backoff_gen.send(1.0 + entropy)
         return wrapper
     return decorator
