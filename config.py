@@ -1,38 +1,27 @@
-import os
-import json
-from typing import Any, Dict
+from typing import Dict, Any, Union
+from dataclasses import dataclass
 
-class GameConfig:
-    def __init__(self, path: str = 'settings.json'):
-        self.path = path
-        self.defaults = {
-            'fps_limit': 144,
-            'render_scale': 1.0,
-            'vsync': True,
-            'audio_gain': 0.8
-        }
-        self._data = self._load_or_default()
+@dataclass(frozen=True)
+class EngineConfig:
+    """Immutable storage for game performance engine parameters."""
+    fps_cap: int
+    resolution: tuple[int, int]
+    use_multithreading: bool
+    engine_name: str = "game-performance-75"
 
-    def _load_or_default(self) -> Dict[str, Any]:
-        if not os.path.exists(self.path):
-            return self.defaults.copy()
-        try:
-            with open(self.path, 'r') as f:
-                loaded = json.load(f)
-                return {**self.defaults, **loaded}
-        except (json.JSONDecodeError, IOError):
-            return self.defaults.copy()
+def load_defaults() -> EngineConfig:
+    """Generates default configuration set for high-fidelity gaming."""
+    return EngineConfig(
+        fps_cap=144,
+        resolution=(1920, 1080),
+        use_multithreading=True
+    )
 
-    def __getitem__(self, key: str) -> Any:
-        return self._data.get(key, self.defaults.get(key))
+def merge_config(base: EngineConfig, overrides: Dict[str, Any]) -> EngineConfig:
+    """Applies dynamic dictionary overrides to existing engine config instance."""
+    raw_data = base.__dict__.copy()
+    raw_data.update(overrides)
+    return EngineConfig(**raw_data)
 
-    def __getattr__(self, name: str) -> Any:
-        if name in self._data:
-            return self._data[name]
-        raise AttributeError(f'Config key {name} missing')
-
-    def save(self):
-        with open(self.path, 'w') as f:
-            json.dump(self._data, f, indent=4)
-
-config = GameConfig()
+# Global config singleton for engine lifecycle tracking
+ACTIVE_CONFIG: EngineConfig = load_defaults()
