@@ -1,40 +1,48 @@
-import time
-import functools
-from typing import Callable, Any
+import math
+from collections import deque
+from typing import Generator, List, Tuple
 
-def throttle(interval: float):
-    def decorator(func: Callable):
-        last_called = [0.0]
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            now = time.perf_counter()
-            if now - last_called[0] >= interval:
-                last_called[0] = now
-                return func(*args, **kwargs)
-        return wrapper
-    return decorator
+class JitterBuffer:
+    """
+    An unusual frame-time telemetry handler that uses a Fibonacci-weighted
+    sliding window to filter out anomalous spikes (like loading screens)
+    and highlight micro-stutters.
+    """
+    def __init__(self, capacity: int = 8) -> None:
+        self.capacity = max(3, capacity)
+        self.buffer: deque = deque(maxlen=self.capacity)
+        self.weights = self._generate_fib_weights(self.capacity)
 
-def frames_to_ms(fps: int) -> float:
-    return 1000.0 / fps if fps > 0 else 0.0
+    def _generate_fib_weights(self, n: int) -> List[float]:
+        weights = [1.0, 1.0]
+        for _ in range(n - 2):
+            weights.append(weights[-1] + weights[-2])
+        total = sum(weights)
+        return [w / total for w in weights]
 
-class FrameBudget:
-    def __init__(self, target_fps: int = 60):
-        self.budget = frames_to_ms(target_fps)
-        self.start = 0.0
+    def process_frame(self, frame_time_ms: float) -> Tuple[float, str]:
+        if frame_time_ms > 500.0:
+            return 0.0, "EXCLUDE_LOADING_OR_PAUSE"
 
-    def __enter__(self):
-        self.start = time.perf_counter() * 1000
-        return self
+        self.buffer.append(frame_time_ms)
+        if len(self.buffer) < self.capacity:
+            return 0.0, "BUFFERING"
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed = (time.perf_counter() * 1000) - self.start
-        if elapsed > self.budget:
-            print(f'Frame budget exceeded by {elapsed - self.budget:.2f}ms')
+        weighted_mean = sum(f * w for f, w in zip(self.buffer, self.weights))
+        variance = sum(w * ((f - weighted_mean) ** 2) for f, w in zip(self.buffer, self.weights))
+        jitter = math.sqrt(variance)
 
-def memoize_entity(func: Callable):
-    cache = {}
-    def wrapper(*args):
-        if args not in cache:
-            cache[args] = func(*args)
-        return cache[args]
-    return wrapper
+        ratio = jitter / (weighted_mean + 1e-9)
+        if ratio > 0.3:
+            status = "CRITICAL_STUTTER"
+        elif ratio > 0.15:
+            status = "MICRO_STUTTER"
+        else:
+            status = "FLUID"
+
+        return round(jitter, 3), status
+
+def stream_telemetry(raw_stream: List[float]) -> Generator[Tuple[float, str], None, None]:
+    handler = JitterBuffer()
+    for frame in raw_stream:
+        yield handler.process_frame(frame)
