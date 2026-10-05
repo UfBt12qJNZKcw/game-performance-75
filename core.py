@@ -1,40 +1,45 @@
 import gc
 import time
-import functools
+import psutil
+from typing import Callable
 
-def frame_optimizer(target_fps=60):
-    frame_time = 1.0 / target_fps
-    def decorator(func):
-        last_call = 0.0
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal last_call
-            now = time.perf_counter()
-            elapsed = now - last_call
-            if elapsed < frame_time:
-                time.sleep(frame_time - elapsed)
-            result = func(*args, **kwargs)
-            last_call = time.perf_counter()
-            return result
-        return wrapper
-    return decorator
-
-class MemoryThrottle:
-    def __init__(self, threshold_mb=500):
+class PerformanceOptimizer:
+    def __init__(self, threshold_mb: float = 500.0):
         self.threshold = threshold_mb
+        self.registry: list[Callable] = []
 
-    def monitor_and_clean(self):
-        import os, psutil
-        process = psutil.Process(os.getpid())
-        mem_usage = process.memory_info().rss / (1024 * 1024)
-        if mem_usage > self.threshold:
+    def register_cleanup(self, func: Callable):
+        self.registry.append(func)
+
+    def pulse(self):
+        mem = psutil.Process().memory_info().rss / (1024 * 1024)
+        if mem > self.threshold:
+            [task() for task in self.registry]
             gc.collect()
 
-class GameCore:
-    def __init__(self):
-        self.throttle = MemoryThrottle()
+    def run_cycle(self, tasks: list[Callable]):
+        start = time.perf_counter()
+        try:
+            [t() for t in tasks]
+        finally:
+            self.pulse()
+        return time.perf_counter() - start
 
-    @frame_optimizer(target_fps=144)
-    def process_tick(self, entity_data):
-        self.throttle.monitor_and_clean()
-        return [e * 1.05 for e in entity_data]
+class ResourceManager:
+    def __init__(self):
+        self.assets = {}
+
+    def purge_stale(self):
+        keys = list(self.assets.keys())
+        for k in keys:
+            if self.assets[k].expired:
+                del self.assets[k]
+
+class GameEngine:
+    def __init__(self):
+        self.optimizer = PerformanceOptimizer()
+        self.manager = ResourceManager()
+        self.optimizer.register_cleanup(self.manager.purge_stale)
+
+    def tick(self, frame_logic: Callable):
+        return self.optimizer.run_cycle([frame_logic])
