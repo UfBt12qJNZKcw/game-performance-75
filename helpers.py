@@ -1,36 +1,35 @@
-import time
-import random
-from typing import Callable, Any, Generator
+from typing import Any, Dict, Optional
 
-def chaos_backoff(base_delay: float, max_delay: float, factor: float = 1.5) -> Generator[float, float, None]:
-    """Yields exponentially increasing delays with dynamic jitter steered by feedback."""
-    delay = base_delay
-    while True:
-        feedback = yield delay
-        scale = feedback if feedback is not None else 1.0
-        jitter = random.uniform(0.5, 1.5) * scale
-        delay = min(delay * factor * jitter, max_delay)
+def sanitize_input(data: Any, schema: Dict[str, type]) -> Optional[Dict[str, Any]]:
+    """Validate gaming inputs via duck-typing for performance"""
+    if not isinstance(data, dict):
+        return None
+    
+    try:
+        validated = {}
+        for key, expected_type in schema.items():
+            val = data.get(key)
+            if val is not None and isinstance(val, expected_type):
+                validated[key] = val
+            else:
+                return None
+        return validated
+    except (AttributeError, KeyError):
+        return None
 
-def resilient_retry(retries: int = 3, base_delay: float = 0.1, max_delay: float = 2.0):
-    """
-    Decorator applying a chaotic backoff retry strategy.
-    Uses exception entropy to prevent synchronized packet storms in game clients.
-    """
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            backoff_gen = chaos_backoff(base_delay, max_delay)
-            next_delay = next(backoff_gen)
-            
-            for attempt in range(retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as exc:
-                    if attempt == retries:
-                        raise exc
-                    
-                    # Derive dynamic entropy from the exception string to guide backoff
-                    entropy = (hash(str(exc)) % 100) / 100.0
-                    time.sleep(next_delay)
-                    next_delay = backoff_gen.send(1.0 + entropy)
-        return wrapper
-    return decorator
+def throttle_input(func):
+    """Decorator for rate-limiting loop processing"""
+    cache = {'last': 0}
+    def wrapper(*args, **kwargs):
+        import time
+        now = time.perf_counter()
+        if now - cache['last'] > 0.001:
+            cache['last'] = now
+            return func(*args, **kwargs)
+    return wrapper
+
+if __name__ == '__main__':
+    schema = {'input_type': int, 'payload': float}
+    data = {'input_type': 1, 'payload': 99.9}
+    result = sanitize_input(data, schema)
+    print(f'validated: {result is not None}')
