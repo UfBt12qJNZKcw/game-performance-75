@@ -1,35 +1,37 @@
-from typing import Any, Dict, Optional
+from typing import List, Dict, Union, Optional, Callable
 
-def sanitize_input(data: Any, schema: Dict[str, type]) -> Optional[Dict[str, Any]]:
-    """Validate gaming inputs via duck-typing for performance"""
-    if not isinstance(data, dict):
-        return None
+def calculate_fps_metrics(frame_times: List[float]) -> Dict[str, float]:
+    """Calculates average and percentile metrics for frame timings.
     
-    try:
-        validated = {}
-        for key, expected_type in schema.items():
-            val = data.get(key)
-            if val is not None and isinstance(val, expected_type):
-                validated[key] = val
-            else:
-                return None
-        return validated
-    except (AttributeError, KeyError):
-        return None
+    Args:
+        frame_times: List of elapsed time per frame in milliseconds.
+        
+    Returns:
+        Dictionary containing avg_fps and p99_latency values.
+    """
+    if not frame_times:
+        return {"avg_fps": 0.0, "p99_latency": 0.0}
+        
+    avg_time: float = sum(frame_times) / len(frame_times)
+    sorted_times: List[float] = sorted(frame_times)
+    p99_index: int = int(len(sorted_times) * 0.99)
+    
+    return {
+        "avg_fps": 1000.0 / avg_time if avg_time > 0 else 0.0,
+        "p99_latency": sorted_times[p99_index]
+    }
 
-def throttle_input(func):
-    """Decorator for rate-limiting loop processing"""
-    cache = {'last': 0}
-    def wrapper(*args, **kwargs):
-        import time
-        now = time.perf_counter()
-        if now - cache['last'] > 0.001:
-            cache['last'] = now
-            return func(*args, **kwargs)
-    return wrapper
+def apply_performance_scaler(entities: List[Dict[str, Union[int, float]]], multiplier: float) -> List[Dict[str, Union[int, float]]]:
+    """Adjusts entity update frequency based on a performance scaler.
+    
+    Args:
+        entities: List of entity state dictionaries.
+        multiplier: Scale factor for entity logic throughput.
+        
+    Returns:
+        Modified entity list with updated tick rates.
+    """
+    def _scale(val: Union[int, float]) -> Union[int, float]:
+        return val * multiplier
 
-if __name__ == '__main__':
-    schema = {'input_type': int, 'payload': float}
-    data = {'input_type': 1, 'payload': 99.9}
-    result = sanitize_input(data, schema)
-    print(f'validated: {result is not None}')
+    return [{k: (_scale(v) if isinstance(v, (int, float)) else v) for k, v in e.items()} for e in entities]
