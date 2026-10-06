@@ -1,41 +1,67 @@
 import logging
-import functools
+import os
+import sys
+from logging.handlers import RotatingFileHandler
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('game-performance-75')
+class FramePerformanceFormatter(logging.Formatter):
+    """Custom formatter highlighting FPS drops and render tick telemetry."""
+    
+    COLORS = {
+        'DEBUG': '\033[94m',
+        'INFO': '\033[92m',
+        'WARNING': '\033[93m',
+        'ERROR': '\033[91m',
+        'CRITICAL': '\033[95m',
+        'RESET': '\033[0m'
+    }
 
-def validate_input(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        payload = kwargs.get('data') or (args[0] if args else None)
-        if not isinstance(payload, dict) or 'frame_time' not in payload:
-            logger.error(f'malformed telemetry packet received: {payload}')
-            return None
-        if not (0 < payload['frame_time'] < 1000):
-            logger.warning(f'suspicious frame time: {payload['frame_time']}ms')
-        return func(*args, **kwargs)
-    return wrapper
+    def format(self, record):
+        fps = getattr(record, 'fps', None)
+        fps_str = f" [FPS: {fps:.1f}]" if fps is not None else " [FPS: ---]"
+        color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
+        reset = self.COLORS['RESET']
+        
+        timestamp = self.formatTime(record, "%H:%M:%S.%f")[:-3]
+        record.msg = f"{color}[{timestamp}]{fps_str} {record.getMessage()}{reset}"
+        return record.msg
 
-class PerformanceLogger:
-    def __init__(self):
-        self.history = []
+class FrameAwareRotatingHandler(RotatingFileHandler):
+    """Rotates log files based on file size or frame-tick thresholds."""
+    
+    def __init__(self, filename, maxBytes=2097152, backupCount=5, frame_interval=10000):
+        super().__init__(filename, maxBytes=maxBytes, backupCount=backupCount)
+        self.frame_interval = frame_interval
+        self._frame_count = 0
 
-    @validate_input
-    def process_telemetry(self, data):
-        self.history.append(data['frame_time'])
-        logger.info(f'processed frame in {data['frame_time']}ms')
-        return True
+    def emit(self, record):
+        if getattr(record, 'fps', None) is not None:
+            self._frame_count += 1
+            if self._frame_count >= self.frame_interval:
+                self._frame_count = 0
+                self.doRollover()
+        super().emit(record)
 
-def run_main_loop():
-    engine = PerformanceLogger()
-    test_packets = [
-        {'frame_time': 16.6}, 
-        {'invalid': 'data'},
-        {'frame_time': 5000},
-        {'frame_time': 8.3}
-    ]
-    for packet in test_packets:
-        engine.process_telemetry(packet)
+def setup_game_logger(name="game_perf", log_file="telemetry.log", max_mb=5, frame_rotation_interval=20000):
+    """Configures a telemetry logger with frame-count and byte-limit log rotation."""
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
 
-if __name__ == '__main__':
-    run_main_loop()
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
+    file_handler = FrameAwareRotatingHandler(
+        log_file, 
+        maxBytes=max_mb * 1024 * 1024, 
+        backupCount=4, 
+        frame_interval=frame_rotation_interval
+    )
+    file_handler.setFormatter(FramePerformanceFormatter())
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(FramePerformanceFormatter())
+    logger.addHandler(console_handler)
+
+    return logger
