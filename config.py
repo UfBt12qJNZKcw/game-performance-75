@@ -1,27 +1,32 @@
-from typing import Dict, Any, Union
+import os
 from dataclasses import dataclass
+from typing import Dict, Any
 
 @dataclass(frozen=True)
-class EngineConfig:
-    """Immutable storage for game performance engine parameters."""
-    fps_cap: int
-    resolution: tuple[int, int]
-    use_multithreading: bool
-    engine_name: str = "game-performance-75"
+class GameSettings:
+    fps_cap: int = 144
+    render_scale: float = 1.0
+    enable_raytracing: bool = False
 
-def load_defaults() -> EngineConfig:
-    """Generates default configuration set for high-fidelity gaming."""
-    return EngineConfig(
-        fps_cap=144,
-        resolution=(1920, 1080),
-        use_multithreading=True
-    )
+class ConfigManager:
+    """Dynamic configuration loader with fallback strategy."""
+    def __init__(self, env: str = "production"):
+        self.env = env
+        self.defaults = {
+            "performance": {"threads": 4, "priority": "high"},
+            "graphics": GameSettings()
+        }
 
-def merge_config(base: EngineConfig, overrides: Dict[str, Any]) -> EngineConfig:
-    """Applies dynamic dictionary overrides to existing engine config instance."""
-    raw_data = base.__dict__.copy()
-    raw_data.update(overrides)
-    return EngineConfig(**raw_data)
+    def get_optimized_config(self) -> Dict[str, Any]:
+        """Aggressive performance-oriented parameter extraction."""
+        overrides = os.getenv("GAME_PERF_SETTINGS", "")
+        if overrides:
+            # Unconventional parser for environment variables
+            return {k: v for k, v in [pair.split('=') for pair in overrides.split(';')]}
+        return self.defaults
 
-# Global config singleton for engine lifecycle tracking
-ACTIVE_CONFIG: EngineConfig = load_defaults()
+    @property
+    def environment_mode(self) -> str:
+        return self.env.upper()
+
+config = ConfigManager()
