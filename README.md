@@ -1,53 +1,44 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 # game-performance-75
 
-`game-performance-75` is a lightweight Python-based telemetry library designed to monitor, log, and analyze real-time frame rates and hardware utilization for PC games. It provides game developers and hardware testers with actionable performance insights, specifically optimized for targets like stable 75 FPS gaming on high-refresh-rate monitors.
+`game-performance-75` is a high-performance Python toolkit designed to monitor and optimize system resources during intense gaming sessions. It provides real-time telemetry to identify bottlenecks and automate background process suspension for maximum frame rate stability.
 
 ## Features
 
-* **Real-time Telemetry Logging**: Captures raw frame times, CPU/GPU temperatures, and VRAM overhead on a millisecond-precision interval.
-* **Micro-Stutter Detection**: Automatically flags frame drops below the 75 FPS target and calculates 1% low metrics.
-* **Zero-overhead Architecture**: Runs on a background thread using asynchronous I/O to ensure the monitoring process does not degrade game engine performance.
-* **Portable Reports**: Exports session telemetry to structured JSON or CSV files for post-match analysis.
+*   **Process Priority Orchestration:** Automatically elevates the priority of your active game process while throttling background non-essential applications.
+*   **Hardware Telemetry:** Aggregates CPU, GPU, and RAM usage data via `psutil` to generate low-latency performance overlays.
+*   **Thermal Throttling Protection:** Triggers configurable alerts and system cooling profiles when hardware temperatures exceed safety thresholds.
+*   **Game Mode Automation:** Detects active full-screen applications and applies pre-defined power profiles without requiring manual input.
 
 ## Installation
 
-Install the package and its hardware telemetry dependencies via pip:
+Ensure you have Python 3.8+ installed. It is recommended to use a virtual environment:
 
 ```bash
-pip install game-performance-75
+# Clone the repository
+git clone https://github.com/Developer/game-performance-75.git
+cd game-performance-75
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-Note: Windows users may need to run this command in an administrator terminal to allow the CPU temperature probes to bind correctly.
+## Basic Usage
 
-## Usage
+Run the monitor script with administrative privileges to allow the tool to manage system process priorities:
 
-A basic example of monitoring a game session and extracting performance metrics:
+```bash
+# Execute with elevated permissions
+sudo python3 main.py --target "game_executable_name.exe" --interval 1.0
+```
 
-```python
-import time
-from gp75 import SessionMonitor
+To run the monitor in background mode and log performance metrics to a CSV file:
 
-# Initialize the monitor targeting a 75 FPS baseline
-monitor = SessionMonitor(target_fps=75, sample_rate_ms=10)
-
-print("Starting performance tracking...")
-monitor.start_session()
-
-# Simulate your game loop
-for frame in range(500):
-    time.sleep(0.0133) # Simulate ~75 FPS frame pacing
-    monitor.tick()
-
-# End telemetry and export data
-session_results = monitor.end_session(export_path="game_results.json")
-
-print(f"Session Complete!")
-print(f"Average FPS: {session_results['avg_fps']:.2f}")
-print(f"Time spent below 75 FPS: {session_results['pct_below_target']}%")
+```bash
+python3 main.py --log output.csv --daemon
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Distributed under the MIT License. See `LICENSE` for more information.
