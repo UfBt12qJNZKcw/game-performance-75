@@ -1,32 +1,36 @@
+import json
 import os
-from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Any, Dict
 
-@dataclass(frozen=True)
-class GameSettings:
-    fps_cap: int = 144
-    render_scale: float = 1.0
-    enable_raytracing: bool = False
+class GameConfig:
+    def __init__(self, path: str, defaults: Dict[str, Any]):
+        self.path = path
+        self.data = defaults.copy()
+        self._load_from_disk()
 
-class ConfigManager:
-    """Dynamic configuration loader with fallback strategy."""
-    def __init__(self, env: str = "production"):
-        self.env = env
-        self.defaults = {
-            "performance": {"threads": 4, "priority": "high"},
-            "graphics": GameSettings()
-        }
+    def _load_from_disk(self) -> None:
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, 'r') as f:
+                    disk_data = json.load(f)
+                    self.data.update({k: v for k, v in disk_data.items() if k in self.data})
+            except (json.JSONDecodeError, IOError):
+                pass
 
-    def get_optimized_config(self) -> Dict[str, Any]:
-        """Aggressive performance-oriented parameter extraction."""
-        overrides = os.getenv("GAME_PERF_SETTINGS", "")
-        if overrides:
-            # Unconventional parser for environment variables
-            return {k: v for k, v in [pair.split('=') for pair in overrides.split(';')]}
-        return self.defaults
+    def __getattr__(self, name: str) -> Any:
+        return self.data.get(name)
 
-    @property
-    def environment_mode(self) -> str:
-        return self.env.upper()
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ['path', 'data']:
+            super().__setattr__(name, value)
+        else:
+            self.data[name] = value
 
-config = ConfigManager()
+def get_loader(path: str) -> GameConfig:
+    defaults = {
+        'fps_cap': 60,
+        'vsync': True,
+        'resolution': (1920, 1080),
+        'texture_quality': 'high'
+    }
+    return GameConfig(path, defaults)
