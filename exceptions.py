@@ -1,29 +1,32 @@
-class GamePerformanceError(Exception):
-    """Base exception for all performance related bottlenecks."""
+import time
+import functools
+import logging
+
+logger = logging.getLogger('game-performance-75')
+
+class NetworkRetry:
+    def __init__(self, retries=3, backoff=0.5):
+        self.retries = retries
+        self.backoff = backoff
+
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_ex = None
+            for attempt in range(self.retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_ex = e
+                    wait = self.backoff * (2 ** attempt)
+                    logger.warning(f'Network glitch, retrying in {wait}s...')
+                    time.sleep(wait)
+            raise last_ex
+        return wrapper
+
+class FatalNetworkError(Exception):
+    """Raised when retries are exhausted."""
     pass
 
-class FrameDropWarning(GamePerformanceError):
-    """Raised when frame latency exceeds threshold."""
-    def __init__(self, fps, threshold):
-        self.message = f"FPS {fps} dropped below limit {threshold}"
-        super().__init__(self.message)
-
-class ResourceLeakError(GamePerformanceError):
-    """Critical exception for memory management issues."""
-    def __init__(self, resource_type, usage):
-        self.message = f"Memory leak detected in {resource_type}: {usage}MB"
-        super().__init__(self.message)
-
-class ThrottleTriggerException(GamePerformanceError):
-    """Signal to initiate performance throttling routine."""
-    pass
-
-def raise_if_bottleneck(fps: float, threshold: float = 30.0):
-    """Unconventional checker that raises exceptions on lag."""
-    if fps < threshold:
-        raise FrameDropWarning(fps, threshold)
-
-def audit_memory(usage_bytes: int, limit_bytes: int):
-    """Checks memory footprint against allowed quotas."""
-    if usage_bytes > limit_bytes:
-        raise ResourceLeakError("Heap", usage_bytes // 1024 // 1024)
+def retry_operation(retries=3, backoff=0.5):
+    return NetworkRetry(retries, backoff)
