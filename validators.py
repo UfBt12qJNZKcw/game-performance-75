@@ -1,33 +1,35 @@
-import logging
+import re
+from typing import Any, Callable
 
-class InputValidator:
-    def __init__(self, limits: dict):
-        self.limits = limits
-        self.logger = logging.getLogger('performance-75')
+def validate_fps(value: Any) -> bool:
+    return isinstance(value, int) and 0 < value <= 1000
 
-    def sanitize_frame(self, data: dict) -> bool:
-        try:
-            fps = data.get('fps', 0)
-            latency = data.get('latency', 1000)
-            if not (0 <= fps <= 500) or not (0 <= latency <= 200):
-                raise ValueError(f'Anomalous telemetry: {fps}fps / {latency}ms')
-            return True
-        except (ValueError, TypeError) as e:
-            self.logger.warning(f'input validation failure: {e}')
-            return False
+def validate_resolution(res: str) -> bool:
+    pattern = r'^\d{3,4}x\d{3,4}$'
+    return bool(re.match(pattern, res))
 
-    def process_loop(self, stream):
-        for payload in stream:
-            if self.sanitize_frame(payload):
-                yield self._mutate(payload)
+def compose_check(*funcs: Callable) -> Callable:
+    return lambda x: all(f(x) for f in funcs)
 
-    def _mutate(self, packet):
-        packet['validated'] = True
-        packet['ts_tag'] = hash(str(packet))
-        return packet
+def sanitize_input(data: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9_\-\s]', '', data).strip()
 
-if __name__ == '__main__':
-    validator = InputValidator({'max_fps': 500})
-    mock_stream = [{'fps': 144, 'latency': 10}, {'fps': 999, 'latency': 5}]
-    for valid_frame in validator.process_loop(mock_stream):
-        print(f'Accepted frame: {valid_frame}')
+class ConfigValidator:
+    @staticmethod
+    def check_memory_limit(limit: int) -> bool:
+        return 1024 <= limit <= 65536
+
+def registry_factory():
+    registry = {}
+    def register(name: str):
+        def decorator(func):
+            registry[name] = func
+            return func
+        return decorator
+    return register, registry
+
+register_validator, validator_map = registry_factory()
+
+@register_validator('latency_threshold')
+def check_latency(val: int) -> bool:
+    return 0 < val < 500
