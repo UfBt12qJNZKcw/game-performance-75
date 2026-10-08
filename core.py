@@ -1,45 +1,41 @@
-import gc
 import time
-import psutil
-from typing import Callable
+from collections import deque
+from contextlib import contextmanager
+from typing import Dict, Generator
 
-class PerformanceOptimizer:
-    def __init__(self, threshold_mb: float = 500.0):
-        self.threshold = threshold_mb
-        self.registry: list[Callable] = []
+class GameFrameProfiler:
+    """Monitors frame processing times and provides live performance analytics."""
 
-    def register_cleanup(self, func: Callable):
-        self.registry.append(func)
+    def __init__(self, window_size: int = 100):
+        self.frame_durations: deque[float] = deque(maxlen=window_size)
+        self.slow_frame_threshold_ms: float = 16.67
 
-    def pulse(self):
-        mem = psutil.Process().memory_info().rss / (1024 * 1024)
-        if mem > self.threshold:
-            [task() for task in self.registry]
-            gc.collect()
-
-    def run_cycle(self, tasks: list[Callable]):
-        start = time.perf_counter()
+    @contextmanager
+    def track(self) -> Generator[None, None, None]:
+        start_time = time.perf_counter()
         try:
-            [t() for t in tasks]
+            yield
         finally:
-            self.pulse()
-        return time.perf_counter() - start
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            self.frame_durations.append(duration_ms)
 
-class ResourceManager:
-    def __init__(self):
-        self.assets = {}
+    def get_telemetry(self) -> Dict[str, float]:
+        if not self.frame_durations:
+            return {"avg_fps": 0.0, "jitter_ms": 0.0, "slow_frames_pct": 0.0}
 
-    def purge_stale(self):
-        keys = list(self.assets.keys())
-        for k in keys:
-            if self.assets[k].expired:
-                del self.assets[k]
+        total_frames = len(self.frame_durations)
+        avg_duration_ms = sum(self.frame_durations) / total_frames
+        avg_fps = 1000.0 / avg_duration_ms if avg_duration_ms > 0 else 0.0
 
-class GameEngine:
-    def __init__(self):
-        self.optimizer = PerformanceOptimizer()
-        self.manager = ResourceManager()
-        self.optimizer.register_cleanup(self.manager.purge_stale)
+        mean = avg_duration_ms
+        variance = sum((x - mean) ** 2 for x in self.frame_durations) / total_frames
+        jitter = variance ** 0.5
 
-    def tick(self, frame_logic: Callable):
-        return self.optimizer.run_cycle([frame_logic])
+        slow_frames = sum(1 for x in self.frame_durations if x > self.slow_frame_threshold_ms)
+        slow_frames_pct = (slow_frames / total_frames) * 100
+
+        return {
+            "avg_fps": round(avg_fps, 2),
+            "jitter_ms": round(jitter, 3),
+            "slow_frames_pct": round(slow_frames_pct, 2)
+        }
