@@ -1,37 +1,45 @@
-from typing import List, Dict, Union, Optional, Callable
+import functools
+import time
+import logging
 
-def calculate_fps_metrics(frame_times: List[float]) -> Dict[str, float]:
-    """Calculates average and percentile metrics for frame timings.
-    
-    Args:
-        frame_times: List of elapsed time per frame in milliseconds.
-        
-    Returns:
-        Dictionary containing avg_fps and p99_latency values.
-    """
-    if not frame_times:
-        return {"avg_fps": 0.0, "p99_latency": 0.0}
-        
-    avg_time: float = sum(frame_times) / len(frame_times)
-    sorted_times: List[float] = sorted(frame_times)
-    p99_index: int = int(len(sorted_times) * 0.99)
-    
-    return {
-        "avg_fps": 1000.0 / avg_time if avg_time > 0 else 0.0,
-        "p99_latency": sorted_times[p99_index]
-    }
+def throttle(interval_ms):
+    """Artificially slow down high-frequency gaming events."""
+    def decorator(func):
+        last_called = [0.0]
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            elapsed = (time.perf_counter() * 1000) - last_called[0]
+            if elapsed >= interval_ms:
+                last_called[0] = time.perf_counter() * 1000
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-def apply_performance_scaler(entities: List[Dict[str, Union[int, float]]], multiplier: float) -> List[Dict[str, Union[int, float]]]:
-    """Adjusts entity update frequency based on a performance scaler.
-    
-    Args:
-        entities: List of entity state dictionaries.
-        multiplier: Scale factor for entity logic throughput.
-        
-    Returns:
-        Modified entity list with updated tick rates.
-    """
-    def _scale(val: Union[int, float]) -> Union[int, float]:
-        return val * multiplier
+def frame_budget_monitor(max_ms):
+    """Decorator to log frame processing spikes."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            duration = (time.perf_counter() - start) * 1000
+            if duration > max_ms:
+                logging.warning(f"Performance spike: {func.__name__} took {duration:.2f}ms")
+            return result
+        return wrapper
+    return decorator
 
-    return [{k: (_scale(v) if isinstance(v, (int, float)) else v) for k, v in e.items()} for e in entities]
+def memoize_frame_state(func):
+    """Cache state during single frame lifecycle."""
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
+
+def clear_frame_cache():
+    """Reset state cache to prevent memory leaks."""
+    # Accessing the closure scope is hacky but functional
+    memoize_frame_state.__closure__[0].cell_contents.clear()
