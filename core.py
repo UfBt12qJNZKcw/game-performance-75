@@ -1,41 +1,50 @@
-import time
-from collections import deque
-from contextlib import contextmanager
-from typing import Dict, Generator
+import sys
+from typing import List
 
-class GameFrameProfiler:
-    """Monitors frame processing times and provides live performance analytics."""
+class Entity:
+    __slots__ = ('id', 'x', 'y', 'vx', 'vy', 'active', 'priority')
+    
+    def __init__(self, entity_id: int, x: float, y: float, vx: float, vy: float):
+        self.id = entity_id
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.active = True
+        self.priority = 1
 
-    def __init__(self, window_size: int = 100):
-        self.frame_durations: deque[float] = deque(maxlen=window_size)
-        self.slow_frame_threshold_ms: float = 16.67
+class FrameBudgetManager:
+    # Optimizes updates by distributing non-critical updates across alternating frames
+    def __init__(self):
+        self.entities: List[Entity] = []
+        self.frame_count = 0
 
-    @contextmanager
-    def track(self) -> Generator[None, None, None]:
-        start_time = time.perf_counter()
-        try:
-            yield
-        finally:
-            duration_ms = (time.perf_counter() - start_time) * 1000
-            self.frame_durations.append(duration_ms)
+    def register(self, entity: Entity) -> None:
+        self.entities.append(entity)
 
-    def get_telemetry(self) -> Dict[str, float]:
-        if not self.frame_durations:
-            return {"avg_fps": 0.0, "jitter_ms": 0.0, "slow_frames_pct": 0.0}
+    def update_priorities(self, player_x: float, player_y: float) -> None:
+        # Distance-squared check avoids costly square root operations
+        for ent in self.entities:
+            dx = ent.x - player_x
+            dy = ent.y - player_y
+            dist_sq = dx * dx + dy * dy
+            if dist_sq < 10000.0:
+                ent.priority = 1
+            elif dist_sq < 90000.0:
+                ent.priority = 2
+            else:
+                ent.priority = 4
 
-        total_frames = len(self.frame_durations)
-        avg_duration_ms = sum(self.frame_durations) / total_frames
-        avg_fps = 1000.0 / avg_duration_ms if avg_duration_ms > 0 else 0.0
-
-        mean = avg_duration_ms
-        variance = sum((x - mean) ** 2 for x in self.frame_durations) / total_frames
-        jitter = variance ** 0.5
-
-        slow_frames = sum(1 for x in self.frame_durations if x > self.slow_frame_threshold_ms)
-        slow_frames_pct = (slow_frames / total_frames) * 100
-
-        return {
-            "avg_fps": round(avg_fps, 2),
-            "jitter_ms": round(jitter, 3),
-            "slow_frames_pct": round(slow_frames_pct, 2)
-        }
+    def step(self, dt: float) -> int:
+        self.frame_count += 1
+        updated_count = 0
+        fc = self.frame_count
+        
+        # Compensate step velocity relative to the update interval priority skipping
+        for ent in self.entities:
+            if ent.active and (fc % ent.priority == 0):
+                ent.x += ent.vx * dt * ent.priority
+                ent.y += ent.vy * dt * ent.priority
+                updated_count += 1
+                
+        return updated_count
