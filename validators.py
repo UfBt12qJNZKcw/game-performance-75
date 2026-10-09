@@ -1,35 +1,34 @@
 import re
-from typing import Any, Callable
+from typing import Any, Dict, List
 
-def validate_fps(value: Any) -> bool:
-    return isinstance(value, int) and 0 < value <= 1000
+class PerformanceValidator:
+    def __init__(self, thresholds: Dict[str, float]):
+        self.thresholds = thresholds
+        self._pattern = re.compile(r'^([a-zA-Z_]+)_([0-9]+)$')
 
-def validate_resolution(res: str) -> bool:
-    pattern = r'^\d{3,4}x\d{3,4}$'
-    return bool(re.match(pattern, res))
+    def validate_metric(self, key: str, value: float) -> bool:
+        if key not in self.thresholds:
+            return True
+        return value <= self.thresholds[key]
 
-def compose_check(*funcs: Callable) -> Callable:
-    return lambda x: all(f(x) for f in funcs)
+    def sanitize_frame_data(self, data: Dict[str, Any]) -> Dict[str, float]:
+        return {k: float(v) for k, v in data.items() if isinstance(v, (int, float))}
 
-def sanitize_input(data: str) -> str:
-    return re.sub(r'[^a-zA-Z0-9_\-\s]', '', data).strip()
+    def batch_check(self, payload: List[Dict[str, Any]]) -> List[bool]:
+        results = []
+        for entry in payload:
+            valid = all(self.validate_metric(k, v) for k, v in entry.items())
+            results.append(valid)
+        return results
 
-class ConfigValidator:
+class ConfigSchemaValidator:
     @staticmethod
-    def check_memory_limit(limit: int) -> bool:
-        return 1024 <= limit <= 65536
+    def enforce_limits(config: Dict[str, Any]) -> None:
+        required = ['fps_cap', 'render_scale']
+        for req in required:
+            if req not in config:
+                raise ValueError(f'missing {req} in configuration')
 
-def registry_factory():
-    registry = {}
-    def register(name: str):
-        def decorator(func):
-            registry[name] = func
-            return func
-        return decorator
-    return register, registry
-
-register_validator, validator_map = registry_factory()
-
-@register_validator('latency_threshold')
-def check_latency(val: int) -> bool:
-    return 0 < val < 500
+    @staticmethod
+    def normalize_keys(data: Dict[str, Any]) -> Dict[str, Any]:
+        return {k.lower().strip(): v for k, v in data.items()}
