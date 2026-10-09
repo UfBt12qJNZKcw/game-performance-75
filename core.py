@@ -1,50 +1,62 @@
-import sys
-from typing import List
+from typing import Dict, Set
 
-class Entity:
-    __slots__ = ('id', 'x', 'y', 'vx', 'vy', 'active', 'priority')
-    
-    def __init__(self, entity_id: int, x: float, y: float, vx: float, vy: float):
-        self.id = entity_id
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
-        self.active = True
-        self.priority = 1
+class FastSpatialGrid:
+    """
+    High-performance 2D spatial hash grid using bit-packed integer keys
+    to avoid garbage collection pressure from tuple generation in frames.
+    """
+    def __init__(self, cell_size: int = 64):
+        self.cell_size = cell_size
+        self.grid: Dict[int, Set[int]] = {}
+        self.entity_locations: Dict[int, int] = {}
 
-class FrameBudgetManager:
-    # Optimizes updates by distributing non-critical updates across alternating frames
-    def __init__(self):
-        self.entities: List[Entity] = []
-        self.frame_count = 0
+    def _pack_key(self, x: float, y: float) -> int:
+        # Translate coordinates to prevent negative integer issues in shift operations
+        cx = (int(x) // self.cell_size) + 32768
+        cy = (int(y) // self.cell_size) + 32768
+        return (cx << 16) | cy
 
-    def register(self, entity: Entity) -> None:
-        self.entities.append(entity)
-
-    def update_priorities(self, player_x: float, player_y: float) -> None:
-        # Distance-squared check avoids costly square root operations
-        for ent in self.entities:
-            dx = ent.x - player_x
-            dy = ent.y - player_y
-            dist_sq = dx * dx + dy * dy
-            if dist_sq < 10000.0:
-                ent.priority = 1
-            elif dist_sq < 90000.0:
-                ent.priority = 2
-            else:
-                ent.priority = 4
-
-    def step(self, dt: float) -> int:
-        self.frame_count += 1
-        updated_count = 0
-        fc = self.frame_count
+    def update(self, entity_id: int, x: float, y: float) -> None:
+        key = self._pack_key(x, y)
+        old_key = self.entity_locations.get(entity_id)
         
-        # Compensate step velocity relative to the update interval priority skipping
-        for ent in self.entities:
-            if ent.active and (fc % ent.priority == 0):
-                ent.x += ent.vx * dt * ent.priority
-                ent.y += ent.vy * dt * ent.priority
-                updated_count += 1
-                
-        return updated_count
+        if old_key == key:
+            return
+            
+        if old_key is not None:
+            cell = self.grid.get(old_key)
+            if cell:
+                cell.discard(entity_id)
+                if not cell:
+                    del self.grid[old_key]
+                    
+        self.entity_locations[entity_id] = key
+        if key not in self.grid:
+            self.grid[key] = {entity_id}
+        else:
+            self.grid[key].add(entity_id)
+
+    def remove(self, entity_id: int) -> None:
+        old_key = self.entity_locations.pop(entity_id, None)
+        if old_key is not None:
+            cell = self.grid.get(old_key)
+            if cell:
+                cell.discard(entity_id)
+                if not cell:
+                    del self.grid[old_key]
+
+    def get_nearby(self, x: float, y: float, radius: float) -> Set[int]:
+        nearby: Set[int] = set()
+        cx_min = (int(x - radius) // self.cell_size) + 32768
+        cx_max = (int(x + radius) // self.cell_size) + 32768
+        cy_min = (int(y - radius) // self.cell_size) + 32768
+        cy_max = (int(y + radius) // self.cell_size) + 32768
+
+        for cx in range(cx_min, cx_max + 1):
+            cx_shift = cx << 16
+            for cy in range(cy_min, cy_max + 1):
+                key = cx_shift | cy
+                cell = self.grid.get(key)
+                if cell:
+                    nearby.update(cell)
+        return nearby
