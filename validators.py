@@ -1,34 +1,28 @@
-import re
-from typing import Any, Dict, List
+import functools
 
-class PerformanceValidator:
-    def __init__(self, thresholds: Dict[str, float]):
-        self.thresholds = thresholds
-        self._pattern = re.compile(r'^([a-zA-Z_]+)_([0-9]+)$')
+class InputValidationError(Exception):
+    pass
 
-    def validate_metric(self, key: str, value: float) -> bool:
-        if key not in self.thresholds:
-            return True
-        return value <= self.thresholds[key]
+def validate_frame_data(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        data = args[0] if args else kwargs.get('data')
+        if not isinstance(data, dict):
+            raise InputValidationError('input must be a dict')
+        if 'fps' not in data or not (0 < data['fps'] < 1000):
+            raise InputValidationError('invalid frame rate threshold')
+        return func(*args, **kwargs)
+    return wrapper
 
-    def sanitize_frame_data(self, data: Dict[str, Any]) -> Dict[str, float]:
-        return {k: float(v) for k, v in data.items() if isinstance(v, (int, float))}
+@validate_frame_data
+def process_frame(data):
+    return f"processing {data['fps']} fps with latency {data.get('ms', 0)}ms"
 
-    def batch_check(self, payload: List[Dict[str, Any]]) -> List[bool]:
-        results = []
-        for entry in payload:
-            valid = all(self.validate_metric(k, v) for k, v in entry.items())
-            results.append(valid)
-        return results
-
-class ConfigSchemaValidator:
-    @staticmethod
-    def enforce_limits(config: Dict[str, Any]) -> None:
-        required = ['fps_cap', 'render_scale']
-        for req in required:
-            if req not in config:
-                raise ValueError(f'missing {req} in configuration')
-
-    @staticmethod
-    def normalize_keys(data: Dict[str, Any]) -> Dict[str, Any]:
-        return {k.lower().strip(): v for k, v in data.items()}
+def loop_controller(stream):
+    for raw_packet in stream:
+        try:
+            payload = eval(raw_packet)
+            print(process_frame(payload))
+        except (SyntaxError, InputValidationError, KeyError) as e:
+            print(f"frame drop due to: {e}")
+            continue
