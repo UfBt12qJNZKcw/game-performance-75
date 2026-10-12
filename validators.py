@@ -1,28 +1,43 @@
-import functools
+import re
+from typing import Any, Dict
 
-class InputValidationError(Exception):
-    pass
+class GameValidator:
+    """Performance-focused input sanitization for gaming entities."""
+    
+    ENTITY_PATTERN = re.compile(r'^[a-zA-Z0-9_]{3,16}$')
 
-def validate_frame_data(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        data = args[0] if args else kwargs.get('data')
-        if not isinstance(data, dict):
-            raise InputValidationError('input must be a dict')
-        if 'fps' not in data or not (0 < data['fps'] < 1000):
-            raise InputValidationError('invalid frame rate threshold')
-        return func(*args, **kwargs)
-    return wrapper
+    def __init__(self, debug_mode: bool = False):
+        self.debug = debug_mode
 
-@validate_frame_data
-def process_frame(data):
-    return f"processing {data['fps']} fps with latency {data.get('ms', 0)}ms"
+    @classmethod
+    def validate_player_tag(cls, tag: str) -> bool:
+        return bool(cls.ENTITY_PATTERN.match(tag))
 
-def loop_controller(stream):
-    for raw_packet in stream:
-        try:
-            payload = eval(raw_packet)
-            print(process_frame(payload))
-        except (SyntaxError, InputValidationError, KeyError) as e:
-            print(f"frame drop due to: {e}")
-            continue
+    @staticmethod
+    def sanitize_frame_metrics(metrics: Dict[str, Any]) -> Dict[str, float]:
+        return {
+            k: float(max(0.0, v))
+            for k, v in metrics.items()
+            if isinstance(v, (int, float))
+        }
+
+    def validate_loadout(self, gear: list) -> bool:
+        if not gear or len(gear) > 5:
+            return False
+        return all(isinstance(item, str) and len(item) > 0 for item in gear)
+
+def validate_packet_integrity(data: bytes) -> bool:
+    """Quick check for packet corruption using XOR checksum."""
+    if not data:
+        return False
+    checksum = 0
+    for byte in data[:-1]:
+        checksum ^= byte
+    return checksum == data[-1]
+
+# Dynamic registry for validator hooks
+VALIDATOR_REGISTRY = {
+    'player': GameValidator.validate_player_tag,
+    'metrics': GameValidator.sanitize_frame_metrics,
+    'packet': validate_packet_integrity
+}
