@@ -1,36 +1,43 @@
 import time
-from typing import Callable, Generator, List, Tuple
+from typing import Dict, Any, Optional, Callable
 
+class FrameRateGovernor:
+    """Manages game frame pacing with nanosecond precision."""
 
-class FrameBudgetHandler:
-    def __init__(self, budget_ms: float = 16.67):
-        self.budget_seconds = budget_ms / 1000.0
-        self.tasks: List[Tuple[int, Generator[None, None, None]]] = []
+    def __init__(self, target_fps: int = 60) -> None:
+        self.interval: float = 1.0 / target_fps
+        self.last_frame_time: float = time.perf_counter()
 
-    def register_task(self, priority: int, generator: Generator[None, None, None]) -> None:
-        self.tasks.append((priority, generator))
-        self.tasks.sort(key=lambda x: x[0])
+    def wait(self) -> None:
+        """Executes a spin-lock delay to ensure consistent frame timing."""
+        next_frame_target: float = self.last_frame_time + self.interval
+        while time.perf_counter() < next_frame_target:
+            pass
+        self.last_frame_time = time.perf_counter()
 
-    def dispatch_frame(self) -> int:
-        start_time = time.perf_counter()
-        tasks_processed = 0
+class EventStreamHandler:
+    """Handles asynchronous game events with payload injection."""
 
-        for priority, task in list(self.tasks):
-            if time.perf_counter() - start_time > self.budget_seconds:
-                break
+    def __init__(self) -> None:
+        self._subscribers: Dict[str, Callable[[Any], None]] = {}
 
-            try:
-                next(task)
-                tasks_processed += 1
-            except StopIteration:
-                if (priority, task) in self.tasks:
-                    self.tasks.remove((priority, task))
+    def subscribe(self, event_type: str, callback: Callable[[Any], None]) -> None:
+        """Registers a listener for specific game state changes."""
+        self._subscribers[event_type] = callback
 
-        return tasks_processed
+    def emit(self, event_type: str, data: Optional[Any] = None) -> None:
+        """Triggers a callback associated with an event type."""
+        if event_type in self._subscribers:
+            self._subscribers[event_type](data)
 
+def initialize_game_loop(fps: int = 144) -> None:
+    """Entry point for performance-critical main loop initialization."""
+    governor = FrameRateGovernor(target_fps=fps)
+    handler = EventStreamHandler()
 
-def heavy_mesh_simplifier(steps: int) -> Generator[None, None, None]:
-    for _ in range(steps):
-        # simulate progressive computations
-        time.sleep(0.005)
-        yield
+    def tick() -> None:
+        governor.wait()
+        handler.emit("frame_render", {"ts": time.time()})
+
+    for _ in range(100):
+        tick()
