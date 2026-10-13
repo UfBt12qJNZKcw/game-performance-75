@@ -1,31 +1,39 @@
+import json
 import os
-from dataclasses import dataclass
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
 
-@dataclass(frozen=True)
-class PerformanceSettings:
-    FRAME_CAP: int = 144
-    TEXTURE_QUALITY: str = 'ultra'
-    CACHE_LIMIT_MB: int = 2048
-
-def load_performance_profile() -> PerformanceSettings:
-    """Factory for gaming performance profiles."""
-    env_profile = os.getenv('GAME_MODE', 'balanced').lower()
-    
-    profiles = {
-        'competitive': PerformanceSettings(240, 'low', 4096),
-        'cinematic': PerformanceSettings(60, 'ultra', 1024),
-        'balanced': PerformanceSettings(144, 'medium', 2048)
+class GameConfig:
+    DEFAULT_SETTINGS = {
+        "resolution": [1920, 1080],
+        "vsync": True,
+        "target_fps": 144,
+        "shadow_quality": "ultra"
     }
-    
-    return profiles.get(env_profile, profiles['balanced'])
 
-CONFIG = load_performance_profile()
+    def __init__(self, config_path: str = "settings.json"):
+        self.path = Path(config_path)
+        self.data = self._load()
 
-def get_gpu_affinity() -> Dict[str, Any]:
-    """Return raw hardware-bound configuration mapping."""
-    return {
-        'max_draw_calls': 10000 if CONFIG.FRAME_CAP > 120 else 5000,
-        'buffer_size': CONFIG.CACHE_LIMIT_MB * 1024,
-        'vsync_state': False if CONFIG.FRAME_CAP > 60 else True
-    }
+    def _load(self) -> Dict[str, Any]:
+        if not self.path.exists():
+            return self.DEFAULT_SETTINGS.copy()
+        try:
+            with open(self.path, "r") as f:
+                user_data = json.load(f)
+                return {**self.DEFAULT_SETTINGS, **user_data}
+        except (json.JSONDecodeError, OSError):
+            return self.DEFAULT_SETTINGS.copy()
+
+    def get(self, key: str, fallback: Any = None) -> Any:
+        return self.data.get(key, fallback)
+
+    def save(self) -> None:
+        with open(self.path, "w") as f:
+            json.dump(self.data, f, indent=4)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.data[key]
+
+    def __repr__(self) -> str:
+        return f"<GameConfig active_settings={len(self.data)}>"
