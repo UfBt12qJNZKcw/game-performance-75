@@ -1,39 +1,35 @@
-import json
 import os
-from pathlib import Path
-from typing import Any, Dict
+import functools
 
-class GameConfig:
-    DEFAULT_SETTINGS = {
-        "resolution": [1920, 1080],
-        "vsync": True,
-        "target_fps": 144,
-        "shadow_quality": "ultra"
-    }
+class PerformanceConfig:
+    __slots__ = ('cache_size', 'priority_mode', 'lazy_load')
+    
+    def __init__(self):
+        self.cache_size = int(os.getenv('CACHE_SIZE', 1024))
+        self.priority_mode = os.getenv('PRIORITY', 'balanced') == 'high'
+        self.lazy_load = True
 
-    def __init__(self, config_path: str = "settings.json"):
-        self.path = Path(config_path)
-        self.data = self._load()
+    @staticmethod
+    def memoize_heavy_calc(func):
+        cache = {}
+        @functools.wraps(func)
+        def wrapper(*args):
+            if args not in cache:
+                if len(cache) > 500:
+                    cache.clear()
+                cache[args] = func(*args)
+            return cache[args]
+        return wrapper
 
-    def _load(self) -> Dict[str, Any]:
-        if not self.path.exists():
-            return self.DEFAULT_SETTINGS.copy()
-        try:
-            with open(self.path, "r") as f:
-                user_data = json.load(f)
-                return {**self.DEFAULT_SETTINGS, **user_data}
-        except (json.JSONDecodeError, OSError):
-            return self.DEFAULT_SETTINGS.copy()
+@functools.lru_cache(maxsize=128)
+def get_game_settings(context_id):
+    # Simulated high-frequency configuration fetch
+    base = {'fps_cap': 144, 'v_sync': False, 'shadow_res': 2048}
+    if context_id == 'low_power':
+        base.update({'fps_cap': 60, 'shadow_res': 1024})
+    return base
 
-    def get(self, key: str, fallback: Any = None) -> Any:
-        return self.data.get(key, fallback)
+def hot_reload_config():
+    return PerformanceConfig()
 
-    def save(self) -> None:
-        with open(self.path, "w") as f:
-            json.dump(self.data, f, indent=4)
-
-    def __getitem__(self, key: str) -> Any:
-        return self.data[key]
-
-    def __repr__(self) -> str:
-        return f"<GameConfig active_settings={len(self.data)}>"
+GLOBAL_CONFIG = hot_reload_config()
