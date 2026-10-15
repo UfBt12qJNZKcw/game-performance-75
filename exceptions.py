@@ -1,32 +1,27 @@
-import time
-import functools
-import logging
+class PerformanceError(Exception):
+    """Base exception for the game-performance-75 engine."""
 
-logger = logging.getLogger('game-performance-75')
+class ResourceThrottlingError(PerformanceError):
+    """Raised when the engine detects a frame rate bottleneck."""
+    def __init__(self, frame_time: float, threshold: float):
+        self.msg = f"Frame time {frame_time:.4f}s exceeded threshold of {threshold:.4f}s"
+        super().__init__(self.msg)
 
-class NetworkRetry:
-    def __init__(self, retries=3, backoff=0.5):
-        self.retries = retries
-        self.backoff = backoff
+class CacheOverflowError(PerformanceError):
+    """Raised when asset preloading exceeds allocated RAM."""
+    def __init__(self, size_mb: int, limit_mb: int):
+        self.msg = f"Cache usage at {size_mb}MB, limit {limit_mb}MB reached"
+        super().__init__(self.msg)
 
-    def __call__(self, func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_ex = None
-            for attempt in range(self.retries):
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    last_ex = e
-                    wait = self.backoff * (2 ** attempt)
-                    logger.warning(f'Network glitch, retrying in {wait}s...')
-                    time.sleep(wait)
-            raise last_ex
-        return wrapper
-
-class FatalNetworkError(Exception):
-    """Raised when retries are exhausted."""
+class GraphicsPipelineError(PerformanceError):
+    """Raised when the rendering backend fails to sync."""
     pass
 
-def retry_operation(retries=3, backoff=0.5):
-    return NetworkRetry(retries, backoff)
+class AssetSerializationError(PerformanceError):
+    """Custom failure for rapid game asset state exports."""
+    def __init__(self, asset_id: str):
+        super().__init__(f"Serialization failed for object ID: {asset_id}")
+
+def raise_if_lagging(current: float, max_allowable: float):
+    if current > max_allowable:
+        raise ResourceThrottlingError(current, max_allowable)
