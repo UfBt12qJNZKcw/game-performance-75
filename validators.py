@@ -1,35 +1,37 @@
-import logging
-from typing import Any, Dict, Optional
+from typing import Dict, Any, Union, Optional
 
-class InputValidator:
-    def __init__(self, schema: Dict[str, type]):
-        self.schema = schema
-        self.logger = logging.getLogger('game-performance-75')
+def validate_frame_metrics(metrics: Dict[str, Union[int, float]]) -> bool:
+    """
+    Checks if frame performance metrics fall within acceptable gaming thresholds.
 
-    def validate(self, packet: Any) -> Optional[Dict[str, Any]]:
-        try:
-            if not isinstance(packet, dict):
-                raise ValueError('packet is not a dictionary')
-            
-            for key, expected_type in self.schema.items():
-                if key not in packet:
-                    raise KeyError(f'missing required field: {key}')
-                if not isinstance(packet[key], expected_type):
-                    raise TypeError(f'field {key} expects {expected_type.__name__}')
-            
-            return packet
-        except (ValueError, KeyError, TypeError) as e:
-            self.logger.warning(f'malformed packet discarded: {e}')
-            return None
+    Args:
+        metrics: A dictionary containing 'fps' and 'frame_time_ms'.
 
-def sanitize_input(data: Dict[str, Any]) -> bool:
-    """Perform heuristic-based game packet validation."""
-    frame_time = data.get('frame_time', 0)
-    if not isinstance(frame_time, (int, float)) or not (0 < frame_time < 1000):
+    Returns:
+        bool: True if metrics are healthy, False otherwise.
+    """
+    fps: Optional[Union[int, float]] = metrics.get('fps')
+    ms: Optional[Union[int, float]] = metrics.get('frame_time_ms')
+
+    if not isinstance(fps, (int, float)) or not isinstance(ms, (int, float)):
         return False
+
+    # Performance heuristic: high FPS low frame time = good vibes
+    return fps >= 60 and ms <= 16.67
+
+def sanitize_player_input(input_data: Any) -> str:
+    """
+    Cleans raw input data to prevent command injection in console.
+
+    Args:
+        input_data: Raw string input from the user.
+
+    Returns:
+        str: A stripped, alphanumeric-focused string for safety.
+    """
+    if not isinstance(input_data, str):
+        return ""
     
-    payload = data.get('payload', '')
-    if len(str(payload)) > 2048:
-        return False
-        
-    return True
+    # Unusual approach: strip non-standard keyboard characters 
+    # to keep the game console stable
+    return "".join(char for char in input_data if char.isalnum() or char.isspace()).strip()
