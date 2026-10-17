@@ -1,44 +1,52 @@
 # game-performance-75
 
-`game-performance-75` is a high-performance Python toolkit designed to monitor and optimize system resources during intense gaming sessions. It provides real-time telemetry to identify bottlenecks and automate background process suspension for maximum frame rate stability.
+`game-performance-75` is a high-performance Python toolkit designed to monitor and optimize system resources during intense gaming sessions. It provides real-time telemetry tracking and automated background process management to ensure stable frame rates and reduced latency.
 
 ## Features
 
-*   **Process Priority Orchestration:** Automatically elevates the priority of your active game process while throttling background non-essential applications.
-*   **Hardware Telemetry:** Aggregates CPU, GPU, and RAM usage data via `psutil` to generate low-latency performance overlays.
-*   **Thermal Throttling Protection:** Triggers configurable alerts and system cooling profiles when hardware temperatures exceed safety thresholds.
-*   **Game Mode Automation:** Detects active full-screen applications and applies pre-defined power profiles without requiring manual input.
+*   **Process Priority Orchestration:** Automatically elevates gaming process priority while suspending non-essential background services.
+*   **Thermal Monitoring API:** Interfaces with hardware sensors to log CPU/GPU temperatures and detect thermal throttling in real-time.
+*   **V-Sync & Latency Toggle:** Quickly syncs display refresh rates with system output to minimize input lag and screen tearing.
+*   **Session Analytics:** Exports detailed performance reports to JSON format for post-game analysis and bottleneck identification.
 
 ## Installation
 
-Ensure you have Python 3.8+ installed. It is recommended to use a virtual environment:
+Ensure you have Python 3.8+ installed. You can install the package directly via pip:
 
 ```bash
-# Clone the repository
+pip install game-performance-75
+```
+
+For development builds, clone the repository and run:
+
+```bash
 git clone https://github.com/Developer/game-performance-75.git
 cd game-performance-75
-
-# Install dependencies
 pip install -r requirements.txt
+python setup.py install
 ```
 
 ## Basic Usage
 
-Run the monitor script with administrative privileges to allow the tool to manage system process priorities:
+To launch the monitor and automatically optimize your system for an active game process, use the following snippet:
 
-```bash
-# Execute with elevated permissions
-sudo python3 main.py --target "game_executable_name.exe" --interval 1.0
+```python
+from game_performance import Monitor
+
+# Initialize the performance suite
+perf = Monitor(target_process="game.exe")
+
+# Start real-time monitoring
+perf.start_tracking()
+
+# Execute cleanup and resource allocation
+perf.optimize_system()
 ```
 
-To run the monitor in background mode and log performance metrics to a CSV file:
-
-```bash
-python3 main.py --log output.csv --daemon
-```
+For a full list of configuration options, please refer to the [documentation](https://github.com/Developer/game-performance-75/wiki).
 
 ## License
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Distributed under the MIT License. See `LICENSE` for more information.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
