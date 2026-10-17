@@ -1,47 +1,41 @@
-import gc
+import functools
 import time
-import psutil
-import logging
-from typing import Callable, Any
+import collections
 
-logger = logging.getLogger('game-performance-75')
+class SmartCache:
+    def __init__(self, ttl_seconds=30, max_size=128):
+        self.ttl = ttl_seconds
+        self.max_size = max_size
+        self.cache = collections.OrderedDict()
+        self.timestamps = {}
 
-class PerformanceOptimizer:
-    def __init__(self, threshold_mb: float = 500.0):
-        self.threshold = threshold_mb
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.trigger_reclamation()
-
-    def trigger_reclamation(self):
-        mem = psutil.Process().memory_info().rss / (1024 * 1024)
-        if mem > self.threshold:
-            logger.info(f'Memory usage at {mem:.2f}MB, forcing sweep')
-            gc.collect()
-
-class Throttle:
-    def __init__(self, interval: float):
-        self.interval = interval
-        self.next_run = 0.0
-
-    def __call__(self, func: Callable) -> Callable:
-        def wrapper(*args, **kwargs) -> Any:
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (args, tuple(sorted(kwargs.items())))
             now = time.time()
-            if now >= self.next_run:
-                self.next_run = now + self.interval
-                return func(*args, **kwargs)
+            if key in self.cache and (now - self.timestamps.get(key, 0)) < self.ttl:
+                return self.cache[key]
+            
+            result = func(*args, **kwargs)
+            
+            if len(self.cache) >= self.max_size:
+                self.cache.popitem(last=False)
+            
+            self.cache[key] = result
+            self.timestamps[key] = now
+            return result
         return wrapper
 
-def batch_process(items: list, size: int):
-    for i in range(0, len(items), size):
-        yield items[i:i + size]
+    def invalidate(self):
+        self.cache.clear()
+        self.timestamps.clear()
 
-def memory_cleanup_decorator(func):
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        gc.collect()
-        return result
-    return wrapper
+    def batch_update(self, updates: dict):
+        for key, value in updates.items():
+            self.cache[key] = value
+            self.timestamps[key] = time.time()
+
+def optimized_compute(factor: float):
+    """Pre-computes lookup table for heavy geometry shaders."""
+    return {i: (i * factor) ** 0.5 for i in range(1024)}
