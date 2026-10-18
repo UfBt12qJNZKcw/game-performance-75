@@ -1,38 +1,35 @@
-import logging
+import time
+import random
+import functools
+from typing import Callable, Any
 
-class PerformanceOptimizer:
-    def __init__(self):
-        self.logger = logging.getLogger('game-performance-75')
+def jitter_backoff(retries: int = 3, delay: float = 0.5):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            last_ex = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_ex = e
+                    wait = delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    time.sleep(wait)
+            raise last_ex
+        return wrapper
+    return decorator
 
-    def process_frame_data(self, data: dict):
-        try:
-            if not isinstance(data, dict):
-                raise ValueError('invalid input payload format')
-            
-            fps = data.get('fps')
-            if fps is None:
-                return 0
-            
-            if fps < 0 or fps > 999:
-                raise ValueError(f'out of range fps value: {fps}')
-                
-            return int(fps) * 1.5
-        except (ValueError, TypeError) as e:
-            self.logger.error(f'optimization anomaly: {e}')
-            return 0
-        except Exception as e:
-            self.logger.critical(f'unexpected system collapse: {e}')
-            return -1
+class NetworkProcessor:
+    def __init__(self, endpoint: str):
+        self.endpoint = endpoint
 
-    def validate_batch(self, batch):
-        if not batch:
-            return []
-        
-        results = []
-        for item in batch:
-            processed = self.process_frame_data(item)
-            if processed != -1:
-                results.append(processed)
-            else:
-                self.logger.warning('skipping malformed frame chunk')
-        return results
+    @jitter_backoff(retries=5, delay=0.2)
+    def sync_game_state(self, state: dict):
+        # Simulate unstable gaming network conditions
+        if random.random() < 0.7:
+            raise ConnectionError('Packet loss detected')
+        return {'status': 'success', 'data': state}
+
+def process_payload(data: dict):
+    processor = NetworkProcessor('https://api.game-performance-75.io')
+    return processor.sync_game_state(data)
