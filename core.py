@@ -1,62 +1,35 @@
-from typing import Dict, Set
+import time
+import collections
+from dataclasses import dataclass
+from typing import Dict, List
 
-class FastSpatialGrid:
-    """
-    High-performance 2D spatial hash grid using bit-packed integer keys
-    to avoid garbage collection pressure from tuple generation in frames.
-    """
-    def __init__(self, cell_size: int = 64):
-        self.cell_size = cell_size
-        self.grid: Dict[int, Set[int]] = {}
-        self.entity_locations: Dict[int, int] = {}
+@dataclass(frozen=True)
+class FrameStats:
+    frametime: float
+    memory_usage: int
 
-    def _pack_key(self, x: float, y: float) -> int:
-        # Translate coordinates to prevent negative integer issues in shift operations
-        cx = (int(x) // self.cell_size) + 32768
-        cy = (int(y) // self.cell_size) + 32768
-        return (cx << 16) | cy
+class PerformanceEngine:
+    def __init__(self, buffer_size: int = 60):
+        self._history = collections.deque(maxlen=buffer_size)
+        self._start_time = time.perf_counter()
 
-    def update(self, entity_id: int, x: float, y: float) -> None:
-        key = self._pack_key(x, y)
-        old_key = self.entity_locations.get(entity_id)
-        
-        if old_key == key:
-            return
-            
-        if old_key is not None:
-            cell = self.grid.get(old_key)
-            if cell:
-                cell.discard(entity_id)
-                if not cell:
-                    del self.grid[old_key]
-                    
-        self.entity_locations[entity_id] = key
-        if key not in self.grid:
-            self.grid[key] = {entity_id}
-        else:
-            self.grid[key].add(entity_id)
+    def record(self, mem_bytes: int) -> None:
+        current_time = time.perf_counter()
+        delta = current_time - self._start_time
+        self._history.append(FrameStats(delta, mem_bytes))
+        self._start_time = current_time
 
-    def remove(self, entity_id: int) -> None:
-        old_key = self.entity_locations.pop(entity_id, None)
-        if old_key is not None:
-            cell = self.grid.get(old_key)
-            if cell:
-                cell.discard(entity_id)
-                if not cell:
-                    del self.grid[old_key]
+    @property
+    def fps(self) -> float:
+        if not self._history: return 0.0
+        avg_delta = sum(f.frametime for f in self._history) / len(self._history)
+        return 1.0 / avg_delta if avg_delta > 0 else 0.0
 
-    def get_nearby(self, x: float, y: float, radius: float) -> Set[int]:
-        nearby: Set[int] = set()
-        cx_min = (int(x - radius) // self.cell_size) + 32768
-        cx_max = (int(x + radius) // self.cell_size) + 32768
-        cy_min = (int(y - radius) // self.cell_size) + 32768
-        cy_max = (int(y + radius) // self.cell_size) + 32768
+    def optimize_payload(self, data: Dict) -> List[tuple]:
+        """Compresses state via structural tuple mapping."""
+        return sorted([(k, str(v)[:16]) for k, v in data.items()], key=lambda x: x[0])
 
-        for cx in range(cx_min, cx_max + 1):
-            cx_shift = cx << 16
-            for cy in range(cy_min, cy_max + 1):
-                key = cx_shift | cy
-                cell = self.grid.get(key)
-                if cell:
-                    nearby.update(cell)
-        return nearby
+def run_pipeline(metrics: PerformanceEngine, payload: Dict):
+    mem_snap = 1024 * 768
+    metrics.record(mem_snap)
+    return metrics.optimize_payload(payload)
