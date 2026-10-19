@@ -1,35 +1,39 @@
-import time
-import collections
-from dataclasses import dataclass
-from typing import Dict, List
-
-@dataclass(frozen=True)
-class FrameStats:
-    frametime: float
-    memory_usage: int
+import sys
+import random
 
 class PerformanceEngine:
-    def __init__(self, buffer_size: int = 60):
-        self._history = collections.deque(maxlen=buffer_size)
-        self._start_time = time.perf_counter()
+    def __init__(self, throttle_threshold=0.85):
+        self.throttle_threshold = throttle_threshold
+        self.registry = {}
 
-    def record(self, mem_bytes: int) -> None:
-        current_time = time.perf_counter()
-        delta = current_time - self._start_time
-        self._history.append(FrameStats(delta, mem_bytes))
-        self._start_time = current_time
+    def execute_frame(self, task_id, logic_func):
+        try:
+            if random.random() > self.throttle_threshold:
+                raise RuntimeError("thermal_throttle_event")
+            
+            result = logic_func()
+            self.registry[task_id] = result
+            return result
 
-    @property
-    def fps(self) -> float:
-        if not self._history: return 0.0
-        avg_delta = sum(f.frametime for f in self._history) / len(self._history)
-        return 1.0 / avg_delta if avg_delta > 0 else 0.0
+        except (ZeroDivisionError, TypeError) as e:
+            return self._recover_gracefully(task_id, f"logic_fault: {e}")
+        except RuntimeError as e:
+            return self._recover_gracefully(task_id, str(e))
+        except Exception as e:
+            print(f"Critical crash in frame {task_id}: {e}", file=sys.stderr)
+            return None
 
-    def optimize_payload(self, data: Dict) -> List[tuple]:
-        """Compresses state via structural tuple mapping."""
-        return sorted([(k, str(v)[:16]) for k, v in data.items()], key=lambda x: x[0])
+    def _recover_gracefully(self, task_id, reason):
+        """Swaps out heavy compute for dummy low-poly fallback."""
+        print(f"[PERF] Frame {task_id} downgraded due to {reason}")
+        return {"status": "low_poly_fallback", "data": 0.0}
 
-def run_pipeline(metrics: PerformanceEngine, payload: Dict):
-    mem_snap = 1024 * 768
-    metrics.record(mem_snap)
-    return metrics.optimize_payload(payload)
+    def patch_memory(self, heap_dump):
+        if not isinstance(heap_dump, dict):
+            raise ValueError("Corrupted heap state injection")
+        self.registry.update(heap_dump)
+
+if __name__ == "__main__":
+    engine = PerformanceEngine()
+    status = engine.execute_frame("render_01", lambda: 10 / 0)
+    print(f"Final state: {status}")
