@@ -1,41 +1,36 @@
-import functools
-import time
-import collections
+from typing import Any, Dict, Union
 
-class SmartCache:
-    def __init__(self, ttl_seconds=30, max_size=128):
-        self.ttl = ttl_seconds
-        self.max_size = max_size
-        self.cache = collections.OrderedDict()
-        self.timestamps = {}
+class InputSanitizer:
+    def __init__(self, schema: Dict[str, type]):
+        self.schema = schema
 
-    def __call__(self, func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            key = (args, tuple(sorted(kwargs.items())))
-            now = time.time()
-            if key in self.cache and (now - self.timestamps.get(key, 0)) < self.ttl:
-                return self.cache[key]
+    def validate(self, payload: Dict[str, Any]) -> bool:
+        try:
+            return all(isinstance(payload.get(k), v) for k, v in self.schema.items())
+        except (AttributeError, TypeError):
+            return False
+
+def frame_validator(raw_data: Union[dict, None]) -> bool:
+    if not isinstance(raw_data, dict):
+        return False
+    
+    required = {
+        "input_id": int,
+        "delta_time": float,
+        "action_mask": int
+    }
+    
+    # Strict check for gaming performance metrics
+    for key, expected_type in required.items():
+        val = raw_data.get(key)
+        if val is None or not isinstance(val, expected_type):
+            return False
+        if key == "delta_time" and (val < 0 or val > 0.5):
+            return False
             
-            result = func(*args, **kwargs)
-            
-            if len(self.cache) >= self.max_size:
-                self.cache.popitem(last=False)
-            
-            self.cache[key] = result
-            self.timestamps[key] = now
-            return result
-        return wrapper
+    return True
 
-    def invalidate(self):
-        self.cache.clear()
-        self.timestamps.clear()
-
-    def batch_update(self, updates: dict):
-        for key, value in updates.items():
-            self.cache[key] = value
-            self.timestamps[key] = time.time()
-
-def optimized_compute(factor: float):
-    """Pre-computes lookup table for heavy geometry shaders."""
-    return {i: (i * factor) ** 0.5 for i in range(1024)}
+def process_safe(data: Any, processor_func: callable) -> Any:
+    if frame_validator(data):
+        return processor_func(data)
+    return None
