@@ -1,41 +1,40 @@
 import json
-import os
 from typing import Any, Dict
 
-class GameConfig:
-    def __init__(self, filepath: str = 'settings.json', defaults: Dict[str, Any] = None):
-        self.filepath = filepath
-        self.defaults = defaults or {}
-        self.data = self._load()
+class ConfigLoader:
+    def __init__(self, defaults: Dict[str, Any]):
+        self.settings = defaults
 
-    def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.filepath):
-            return self.defaults.copy()
-        with open(self.filepath, 'r') as f:
-            try:
-                loaded = json.load(f)
-                return {**self.defaults, **loaded}
-            except json.JSONDecodeError:
-                return self.defaults.copy()
+    def load(self, file_path: str) -> None:
+        try:
+            with open(file_path, 'r') as f:
+                user_config = json.load(f)
+                self._recursive_update(self.settings, user_config)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
 
-    def get(self, key: str, fallback: Any = None) -> Any:
-        return self.data.get(key, fallback)
+    def _recursive_update(self, base: Dict[str, Any], update: Dict[str, Any]) -> None:
+        for key, value in update.items():
+            if isinstance(value, dict) and key in base and isinstance(base[key], dict):
+                self._recursive_update(base[key], value)
+            else:
+                base[key] = value
 
-    def save(self) -> None:
-        with open(self.filepath, 'w') as f:
-            json.dump(self.data, f, indent=4)
+    def __getattr__(self, name: str) -> Any:
+        if name in self.settings:
+            return self.settings[name]
+        raise AttributeError(f'Config key {name} missing')
 
     def __getitem__(self, key: str) -> Any:
-        return self.data[key]
+        return self.settings[key]
 
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.data[key] = value
-
-def load_performance_settings() -> GameConfig:
+# Usage example for performance-75 settings
+def get_game_config() -> ConfigLoader:
     defaults = {
-        "fps_limit": 144,
-        "resolution": [1920, 1080],
-        "vsync": True,
-        "shadow_quality": "medium"
+        'fps_cap': 144,
+        'texture_quality': 'high',
+        'debug_mode': False
     }
-    return GameConfig("game_settings.json", defaults)
+    loader = ConfigLoader(defaults)
+    loader.load('settings.json')
+    return loader
