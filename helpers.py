@@ -1,36 +1,43 @@
-from typing import Any, Dict, Union
+import time
+import functools
+from typing import Callable, Any
 
-class InputSanitizer:
-    def __init__(self, schema: Dict[str, type]):
-        self.schema = schema
+def throttle(seconds: float):
+    """Limits execution frequency of expensive gaming logic."""
+    def decorator(func: Callable):
+        last_call = 0
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            nonlocal last_call
+            now = time.perf_counter()
+            if now - last_call > seconds:
+                last_call = now
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-    def validate(self, payload: Dict[str, Any]) -> bool:
-        try:
-            return all(isinstance(payload.get(k), v) for k, v in self.schema.items())
-        except (AttributeError, TypeError):
-            return False
+def clamp(value: float, min_val: float, max_val: float) -> float:
+    """Constrains movement or value metrics to valid bounds."""
+    return max(min_val, min(value, max_val))
 
-def frame_validator(raw_data: Union[dict, None]) -> bool:
-    if not isinstance(raw_data, dict):
-        return False
-    
-    required = {
-        "input_id": int,
-        "delta_time": float,
-        "action_mask": int
-    }
-    
-    # Strict check for gaming performance metrics
-    for key, expected_type in required.items():
-        val = raw_data.get(key)
-        if val is None or not isinstance(val, expected_type):
-            return False
-        if key == "delta_time" and (val < 0 or val > 0.5):
-            return False
-            
-    return True
+def memoize_frame(func: Callable):
+    """Short-lived cache for per-frame physics calculations."""
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
 
-def process_safe(data: Any, processor_func: callable) -> Any:
-    if frame_validator(data):
-        return processor_func(data)
-    return None
+def time_execution(func: Callable):
+    """Performance monitoring for heavy rendering loops."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        duration = time.perf_counter() - start
+        if duration > 0.016:  # 60fps threshold
+            print(f"Warning: {func.__name__} took {duration:.4f}s")
+        return result
+    return wrapper
