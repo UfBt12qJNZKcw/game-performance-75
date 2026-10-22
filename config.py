@@ -1,40 +1,67 @@
 import json
+import os
+from pathlib import Path
 from typing import Any, Dict
 
-class ConfigLoader:
-    def __init__(self, defaults: Dict[str, Any]):
-        self.settings = defaults
+DEFAULT_SETTINGS: Dict[str, Any] = {
+    "target_fps": 120,
+    "resolution_scale": 1.0,
+    "ray_tracing": False,
+    "vram_limit_mb": 6144,
+    "frame_pacing_sync": "vsync",
+}
 
-    def load(self, file_path: str) -> None:
-        try:
-            with open(file_path, 'r') as f:
-                user_config = json.load(f)
-                self._recursive_update(self.settings, user_config)
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
 
-    def _recursive_update(self, base: Dict[str, Any], update: Dict[str, Any]) -> None:
-        for key, value in update.items():
-            if isinstance(value, dict) and key in base and isinstance(base[key], dict):
-                self._recursive_update(base[key], value)
+class DynamicGameConfig:
+    """Cascading configuration manager for gaming engine performance presets."""
+
+    def __init__(self, file_path: str = "perf_config.json") -> None:
+        self.file_path = Path(file_path)
+        self._store: Dict[str, Any] = {}
+        self.load()
+
+    def load(self) -> "DynamicGameConfig":
+        file_data: Dict[str, Any] = {}
+        if self.file_path.is_file():
+            try:
+                file_data = json.loads(self.file_path.read_text())
+            except json.JSONDecodeError:
+                file_data = {}
+
+        # Fallback sequence: Default -> File -> Environment variables
+        for key, default_val in DEFAULT_SETTINGS.items():
+            env_key = f"GAME_PERF_{key.upper()}"
+            raw_env = os.environ.get(env_key)
+
+            if raw_env is not None:
+                value = self._cast(raw_env, type(default_val))
             else:
-                base[key] = value
+                value = file_data.get(key, default_val)
+
+            self._store[key] = value
+        return self
+
+    @staticmethod
+    def _cast(val: str, target_type: type) -> Any:
+        if target_type is bool:
+            return val.lower() in ("true", "1", "yes", "on")
+        try:
+            return target_type(val)
+        except (ValueError, TypeError):
+            return val
 
     def __getattr__(self, name: str) -> Any:
-        if name in self.settings:
-            return self.settings[name]
-        raise AttributeError(f'Config key {name} missing')
+        try:
+            return self._store[name]
+        except KeyError:
+            raise AttributeError(f"Invalid performance config key: {name}")
 
-    def __getitem__(self, key: str) -> Any:
-        return self.settings[key]
+    def __or__(self, override: Dict[str, Any]) -> "DynamicGameConfig":
+        """Bitwise OR syntax to produce dynamic live overrides."""
+        new_cfg = DynamicGameConfig.__new__(DynamicGameConfig)
+        new_cfg.file_path = self.file_path
+        new_cfg._store = {**self._store, **override}
+        return new_cfg
 
-# Usage example for performance-75 settings
-def get_game_config() -> ConfigLoader:
-    defaults = {
-        'fps_cap': 144,
-        'texture_quality': 'high',
-        'debug_mode': False
-    }
-    loader = ConfigLoader(defaults)
-    loader.load('settings.json')
-    return loader
+
+active_config = DynamicGameConfig()
