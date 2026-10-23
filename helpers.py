@@ -1,40 +1,38 @@
-import gc
 import time
-import psutil
-from typing import Callable, Any
+import functools
+import logging
 
-class MemorySentinel:
-    def __init__(self, threshold_mb: int = 500):
-        self.threshold = threshold_mb
-        self.process = psutil.Process()
-
-    def is_overloaded(self) -> bool:
-        return (self.process.memory_info().rss / 1024 / 1024) > self.threshold
-
-    def emergency_cleanup(self):
-        gc.collect()
-        time.sleep(0.01)
-
-def performance_guard(func: Callable) -> Callable:
-    sentinel = MemorySentinel()
-    def wrapper(*args, **kwargs) -> Any:
-        if sentinel.is_overloaded():
-            sentinel.emergency_cleanup()
-        return func(*args, **kwargs)
+def time_execution(func):
+    """Decorator for tracking frame-time bottlenecks in engine loop."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        duration = (time.perf_counter() - start) * 1000
+        if duration > 16.67:
+            logging.warning(f"Frame drop: {func.__name__} took {duration:.2f}ms")
+        return result
     return wrapper
 
-def throttle_frame_rate(target_fps: int):
-    frame_time = 1.0 / target_fps
-    last_time = time.perf_counter()
-
-    def decorator(func: Callable) -> Callable:
-        def throttled(*args, **kwargs):
-            nonlocal last_time
-            current_time = time.perf_counter()
-            elapsed = current_time - last_time
-            if elapsed < frame_time:
-                time.sleep(frame_time - elapsed)
-            last_time = time.perf_counter()
-            return func(*args, **kwargs)
-        return throttled
+def throttle(interval=0.1):
+    """Prevents input spamming by rate-limiting calls."""
+    def decorator(func):
+        last_called = [0.0]
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            if now - last_called[0] > interval:
+                last_called[0] = now
+                return func(*args, **kwargs)
+        return wrapper
     return decorator
+
+def memoize_entity_lookup(func):
+    """Cache-based lookup for static entity game data."""
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
