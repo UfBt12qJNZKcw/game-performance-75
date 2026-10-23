@@ -1,43 +1,40 @@
+import gc
 import time
-import functools
+import psutil
 from typing import Callable, Any
 
-def throttle(seconds: float):
-    """Limits execution frequency of expensive gaming logic."""
-    def decorator(func: Callable):
-        last_call = 0
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal last_call
-            now = time.perf_counter()
-            if now - last_call > seconds:
-                last_call = now
-                return func(*args, **kwargs)
-        return wrapper
+class MemorySentinel:
+    def __init__(self, threshold_mb: int = 500):
+        self.threshold = threshold_mb
+        self.process = psutil.Process()
+
+    def is_overloaded(self) -> bool:
+        return (self.process.memory_info().rss / 1024 / 1024) > self.threshold
+
+    def emergency_cleanup(self):
+        gc.collect()
+        time.sleep(0.01)
+
+def performance_guard(func: Callable) -> Callable:
+    sentinel = MemorySentinel()
+    def wrapper(*args, **kwargs) -> Any:
+        if sentinel.is_overloaded():
+            sentinel.emergency_cleanup()
+        return func(*args, **kwargs)
+    return wrapper
+
+def throttle_frame_rate(target_fps: int):
+    frame_time = 1.0 / target_fps
+    last_time = time.perf_counter()
+
+    def decorator(func: Callable) -> Callable:
+        def throttled(*args, **kwargs):
+            nonlocal last_time
+            current_time = time.perf_counter()
+            elapsed = current_time - last_time
+            if elapsed < frame_time:
+                time.sleep(frame_time - elapsed)
+            last_time = time.perf_counter()
+            return func(*args, **kwargs)
+        return throttled
     return decorator
-
-def clamp(value: float, min_val: float, max_val: float) -> float:
-    """Constrains movement or value metrics to valid bounds."""
-    return max(min_val, min(value, max_val))
-
-def memoize_frame(func: Callable):
-    """Short-lived cache for per-frame physics calculations."""
-    cache = {}
-    @functools.wraps(func)
-    def wrapper(*args):
-        if args not in cache:
-            cache[args] = func(*args)
-        return cache[args]
-    return wrapper
-
-def time_execution(func: Callable):
-    """Performance monitoring for heavy rendering loops."""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        duration = time.perf_counter() - start
-        if duration > 0.016:  # 60fps threshold
-            print(f"Warning: {func.__name__} took {duration:.4f}s")
-        return result
-    return wrapper
