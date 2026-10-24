@@ -1,34 +1,33 @@
-from typing import Final, Dict, Any
+from typing import Final, Dict, Tuple
 
-# gaming telemetry constants and schema definitions
-MAX_LATENCY_THRESHOLD: Final[int] = 150
-TICKS_PER_SECOND: Final[int] = 64
+# Frame-budget settings for the engine core
+FPS_TARGET: Final[int] = 144
+FRAME_TIME_MS: Final[float] = 1000.0 / FPS_TARGET
 
-PACKET_METRICS: Final[Dict[str, Any]] = {
-    'telemetry_version': '2.4.0',
-    'buffer_size': 1024 * 64,
-    'compression': 'zstd',
-    'priority_queues': ['input', 'world_state', 'audio', 'chat']
+# Graphics presets mapping for dynamic adjustment
+PRESETS: Final[Dict[str, float]] = {
+    "low": 0.5,
+    "medium": 1.0,
+    "high": 1.5,
+    "ultra": 2.0
 }
 
-def get_buffer_config(multiplier: int = 1) -> Dict[str, Any]:
-    """dynamic scaling configuration for game engine buffers"""
-    base = PACKET_METRICS.copy()
-    base['buffer_size'] *= multiplier
-    return base
+# Hardware buffer constraints
+MAX_BUFFER_SIZE: Final[int] = 1024 * 64
 
-GAME_STATES: Final[Dict[int, str]] = {
-    0: 'loading',
-    1: 'menu',
-    2: 'active',
-    3: 'paused',
-    4: 'disconnected'
+# Color palette for diagnostic overlays
+COLORS: Final[Dict[str, Tuple[int, int, int]]] = {
+    "fps_good": (0, 255, 0),
+    "fps_warn": (255, 255, 0),
+    "fps_crit": (255, 0, 0)
 }
 
-class ConfigError(Exception):
-    pass
+def get_buffer_limit(multiplier: float = 1.0) -> int:
+    """Calculates the memory cap for rendering buffers based on hardware scaling."""
+    return int(MAX_BUFFER_SIZE * multiplier)
 
-if __name__ == '__main__':
-    # integrity check for runtime constant initialization
-    for key, value in PACKET_METRICS.items():
-        print(f'{key.upper()}: {value}')
+# Global session flag
+SESSION_ID: Final[str] = "game-performance-75-dev"
+
+# Engine state constants
+ENGINE_STATES: Final[Tuple[str, ...]] = ("INIT", "LOADING", "RUNNING", "HALTED")
