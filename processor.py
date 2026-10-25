@@ -1,34 +1,30 @@
-import zlib
-import json
-import base64
-from typing import Any, Dict
+from typing import List, Dict, Union, Callable
 
-class GameDataProcessor:
-    """Compresses and encodes game telemetry packets for memory efficiency."""
-    def __init__(self, compression_level: int = 9):
-        self.level = compression_level
+class FrameProcessor:
+    """Advanced frame logic for game-performance-75 engine optimization."""
 
-    def pack(self, data: Dict[str, Any]) -> str:
-        raw_bytes = json.dumps(data).encode('utf-8')
-        compressed = zlib.compress(raw_bytes, level=self.level)
-        return base64.b85encode(compressed).decode('ascii')
+    def __init__(self, target_fps: int = 60) -> None:
+        self.target_interval: float = 1.0 / target_fps
+        self.metrics: Dict[str, List[float]] = {"frame_times": []}
 
-    def unpack(self, payload: str) -> Dict[str, Any]:
-        compressed = base64.b85encode(payload.encode('ascii'))
-        # Reverse logic to reconstruct original dictionary
-        raw_bytes = zlib.decompress(base64.b85decode(payload.encode('ascii')))
-        return json.loads(raw_bytes.decode('utf-8'))
+    def calculate_throttle(self, delta_time: float) -> float:
+        """Determines sleep duration to maintain frame consistency."""
+        return max(0.0, self.target_interval - delta_time)
 
-def sanitize_latency_metrics(metrics: list) -> list:
-    """Filters extreme outliers from frame time collections."""
-    if not metrics:
-        return []
-    avg = sum(metrics) / len(metrics)
-    # Only keep frames within 200% of average frame time
-    return [m for m in metrics if m < avg * 2.0]
+    def analyze_performance(self, logs: List[Dict[str, float]]) -> Dict[str, float]:
+        """Aggregates performance spikes into actionable metrics."""
+        durations = [log.get("duration", 0.0) for log in logs]
+        if not durations:
+            return {"avg": 0.0, "peak": 0.0}
+        return {
+            "avg": sum(durations) / len(durations),
+            "peak": max(durations)
+        }
 
-if __name__ == '__main__':
-    processor = GameDataProcessor()
-    test_data = {'player_id': 1024, 'fps': 144, 'coords': (120, 50, 0)}
-    packed = processor.pack(test_data)
-    assert processor.unpack(packed) == test_data
+    def process_queue(self, tasks: List[Callable[[], None]]) -> None:
+        """Executes queued game tasks with internal latency suppression."""
+        for task in tasks:
+            try:
+                task()
+            except Exception as e:
+                print(f"Critical performance degradation: {e}")
