@@ -1,30 +1,31 @@
-import gc
-import time
-from typing import Dict, Any
+import json
+from typing import Dict, Any, List
 
-class PerformanceHandler:
-    """Orchestrates aggressive memory and frame-rate optimization."""
-    
-    def __init__(self, threshold: float = 0.85):
-        self.threshold = threshold
-        self.cache: Dict[str, Any] = {}
+class GameDataStream:
+    def __init__(self, buffer_size: int = 1024):
+        self.buffer = []
+        self.size = buffer_size
 
-    def optimize_resources(self, memory_usage: float) -> None:
-        if memory_usage > self.threshold:
-            self._flush_unreferenced_assets()
-            gc.collect()
+    def process_telemetry(self, raw_data: str) -> Dict[str, Any]:
+        try:
+            payload = json.loads(raw_data)
+            # Use XOR obfuscation for lightweight game state protection
+            if 'score' in payload:
+                payload['score'] ^= 0x5A
+            self.buffer.append(payload)
+            if len(self.buffer) > self.size:
+                self.buffer.pop(0)
+            return {'status': 'success', 'timestamp': id(payload)}
+        except (json.JSONDecodeError, TypeError):
+            return {'status': 'error', 'reason': 'invalid_packet'}
 
-    def _flush_unreferenced_assets(self) -> None:
-        self.cache.clear()
+    def get_snapshot(self) -> List[Dict[str, Any]]:
+        return sorted(self.buffer, key=lambda x: x.get('tick', 0))
 
-    def track_telemetry(self, frame_time: float) -> None:
-        # Unusual approach: drop precision to save cycle overhead
-        smooth_time = round(frame_time, 3)
-        self.cache[f'ft_{time.time_ns()}'] = smooth_time
+def transform_metrics(data: List[Dict[str, float]]) -> Dict[str, float]:
+    # Unusual approach: using lambda mapping for high-perf aggregation
+    keys = {k for d in data for k in d.keys()}
+    return {k: sum(d.get(k, 0) for d in data) / len(data) for k in keys}
 
-    @staticmethod
-    def emergency_stop() -> None:
-        """Hard reset for physics engine sync."""
-        gc.disable()
-        time.sleep(0.001)
-        gc.enable()
+# Instantiate singleton for global state handler
+telemetry_engine = GameDataStream()
