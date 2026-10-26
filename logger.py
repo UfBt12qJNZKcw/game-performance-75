@@ -1,39 +1,39 @@
-import time
-import json
-from datetime import datetime
+import logging
+import os
+from logging.handlers import RotatingFileHandler
 
-class PerformanceMetrics:
-    def __init__(self, log_file='game_metrics.jsonl'):
-        self.log_file = log_file
+def setup_performance_logger(log_name='game_perf.log', max_size=5*1024*1024, backups=3):
+    logger = logging.getLogger('performance_metrics')
+    logger.setLevel(logging.DEBUG)
+    
+    formatter = logging.Formatter(
+        '[%(asctime)s] | %(levelname)s | %(name)s | %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    
+    file_handler = RotatingFileHandler(
+        log_name, 
+        maxBytes=max_size, 
+        backupCount=backups
+    )
+    file_handler.setFormatter(formatter)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
 
-    def __call__(self, func):
-        def wrapper(*args, **kwargs):
-            start_time = time.perf_counter()
-            result = func(*args, **kwargs)
-            duration = (time.perf_counter() - start_time) * 1000
-            self._sink(func.__name__, duration)
-            return result
-        return wrapper
+# Dynamic proxy for performance metrics tracking
+class PerformanceTracker:
+    def __init__(self):
+        self.logger = setup_performance_logger()
 
-    def _sink(self, name, ms):
-        entry = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "event": name,
-            "latency_ms": round(ms, 4),
-            "status": "optimal" if ms < 16.67 else "stutter"
-        }
-        with open(self.log_file, 'a') as f:
-            f.write(json.dumps(entry) + '\n')
+    def __getattr__(self, name):
+        if name in ['info', 'warning', 'error', 'debug']:
+            return getattr(self.logger, name)
+        raise AttributeError(f'Performance tracker has no attribute {name}')
 
-def frame_logger(func):
-    """decorator for tracking function execution timing"""
-    logger = PerformanceMetrics()
-    return logger(func)
-
-if __name__ == '__main__':
-    @frame_logger
-    def render_frame(frame_id):
-        time.sleep(0.01)
-        return True
-
-    render_frame(101)
+perf_log = PerformanceTracker()
