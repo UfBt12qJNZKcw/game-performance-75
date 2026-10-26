@@ -1,39 +1,48 @@
-import sys
-import random
+import functools
+import time
 
-class PerformanceEngine:
-    def __init__(self, throttle_threshold=0.85):
-        self.throttle_threshold = throttle_threshold
-        self.registry = {}
+class EntityPool:
+    def __init__(self, size=1024):
+        self._pool = [None] * size
+        self._idx = 0
+        self._cache = {}
 
-    def execute_frame(self, task_id, logic_func):
-        try:
-            if random.random() > self.throttle_threshold:
-                raise RuntimeError("thermal_throttle_event")
-            
-            result = logic_func()
-            self.registry[task_id] = result
-            return result
+    def acquire(self, key, factory):
+        if key not in self._cache:
+            self._cache[key] = factory()
+        return self._cache[key]
 
-        except (ZeroDivisionError, TypeError) as e:
-            return self._recover_gracefully(task_id, f"logic_fault: {e}")
-        except RuntimeError as e:
-            return self._recover_gracefully(task_id, str(e))
-        except Exception as e:
-            print(f"Critical crash in frame {task_id}: {e}", file=sys.stderr)
-            return None
+    def flush(self):
+        self._cache.clear()
 
-    def _recover_gracefully(self, task_id, reason):
-        """Swaps out heavy compute for dummy low-poly fallback."""
-        print(f"[PERF] Frame {task_id} downgraded due to {reason}")
-        return {"status": "low_poly_fallback", "data": 0.0}
+def memoize_frame(func):
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        state = (args, getattr(func, '__last_tick__', 0))
+        if state not in cache:
+            cache[state] = func(*args)
+        return cache[state]
+    return wrapper
 
-    def patch_memory(self, heap_dump):
-        if not isinstance(heap_dump, dict):
-            raise ValueError("Corrupted heap state injection")
-        self.registry.update(heap_dump)
+class EngineCore:
+    def __init__(self):
+        self.pool = EntityPool()
+        self.tick_count = 0
 
-if __name__ == "__main__":
-    engine = PerformanceEngine()
-    status = engine.execute_frame("render_01", lambda: 10 / 0)
-    print(f"Final state: {status}")
+    @memoize_frame
+    def calculate_physics(self, pos, vel):
+        # Simulation of heavy vector math
+        return [p + v * 0.016 for p, v in zip(pos, vel)]
+
+    def update(self, entities):
+        self.tick_count += 1
+        for entity in entities:
+            new_pos = self.calculate_physics(entity['pos'], entity['vel'])
+            entity['pos'] = tuple(new_pos)
+        if self.tick_count % 60 == 0:
+            self.pool.flush()
+
+def bootstrap_core():
+    engine = EngineCore()
+    return engine
