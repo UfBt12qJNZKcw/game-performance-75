@@ -1,37 +1,33 @@
-from typing import Dict, Any, Union, Optional
+import time
+import functools
+from typing import Callable, Any, Type
 
-def validate_frame_metrics(metrics: Dict[str, Union[int, float]]) -> bool:
-    """
-    Checks if frame performance metrics fall within acceptable gaming thresholds.
+def retry_network_call(retries: int = 3, delay: float = 1.0, backoff: int = 2):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            local_delay = delay
+            last_exception = None
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    last_exception = e
+                    if attempt < retries - 1:
+                        time.sleep(local_delay)
+                        local_delay *= backoff
+            raise last_exception
+        return wrapper
+    return decorator
 
-    Args:
-        metrics: A dictionary containing 'fps' and 'frame_time_ms'.
+class ConnectionValidator:
+    def __init__(self, target_node: str):
+        self.target = target_node
 
-    Returns:
-        bool: True if metrics are healthy, False otherwise.
-    """
-    fps: Optional[Union[int, float]] = metrics.get('fps')
-    ms: Optional[Union[int, float]] = metrics.get('frame_time_ms')
-
-    if not isinstance(fps, (int, float)) or not isinstance(ms, (int, float)):
-        return False
-
-    # Performance heuristic: high FPS low frame time = good vibes
-    return fps >= 60 and ms <= 16.67
-
-def sanitize_player_input(input_data: Any) -> str:
-    """
-    Cleans raw input data to prevent command injection in console.
-
-    Args:
-        input_data: Raw string input from the user.
-
-    Returns:
-        str: A stripped, alphanumeric-focused string for safety.
-    """
-    if not isinstance(input_data, str):
-        return ""
-    
-    # Unusual approach: strip non-standard keyboard characters 
-    # to keep the game console stable
-    return "".join(char for char in input_data if char.isalnum() or char.isspace()).strip()
+    @retry_network_call(retries=5, delay=0.5)
+    def validate_connection(self) -> bool:
+        # Simulate unstable network in game-performance-75 context
+        import random
+        if random.random() < 0.7:
+            raise ConnectionError(f"Latency spike detected on {self.target}")
+        return True
