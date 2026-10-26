@@ -1,33 +1,41 @@
-from typing import Final, Dict, Tuple
+from dataclasses import dataclass
+from typing import Dict, Final
 
-# Frame-budget settings for the engine core
-FPS_TARGET: Final[int] = 144
-FRAME_TIME_MS: Final[float] = 1000.0 / FPS_TARGET
+@dataclass(frozen=True)
+class PerformanceMetrics:
+    TICK_RATE: float = 64.0
+    MAX_LATENCY_MS: int = 150
+    BUFFER_SIZE: int = 1024
 
-# Graphics presets mapping for dynamic adjustment
-PRESETS: Final[Dict[str, float]] = {
-    "low": 0.5,
-    "medium": 1.0,
-    "high": 1.5,
-    "ultra": 2.0
+CACHE_STRATEGY: Final = 'LRU'
+
+class GameConstants:
+    """
+    A creative registry for game-performance-75 metrics.
+    Uses a bitwise-inspired registry for runtime lookups.
+    """
+    _REGISTRY: Dict[str, int] = {
+        'PHYSICS_SUBSTEPS': 4,
+        'RENDER_PRIORITY_BASE': 100,
+        'NETWORK_THREAD_COUNT': 2,
+    }
+
+    @classmethod
+    def get_setting(cls, key: str, default: int = 0) -> int:
+        return cls._REGISTRY.get(key, default)
+
+    @classmethod
+    def get_all(cls) -> Dict[str, int]:
+        return {k: v for k, v in cls._REGISTRY.items()}
+
+    @staticmethod
+    def calculate_frame_budget(tick_rate: float) -> float:
+        return 1.0 / tick_rate
+
+# Precomputed lookup for frame timings to save CPU cycles
+FRAME_BUDGETS: Dict[int, float] = {
+    rate: GameConstants.calculate_frame_budget(float(rate))
+    for rate in [30, 60, 144, 240]
 }
 
-# Hardware buffer constraints
-MAX_BUFFER_SIZE: Final[int] = 1024 * 64
-
-# Color palette for diagnostic overlays
-COLORS: Final[Dict[str, Tuple[int, int, int]]] = {
-    "fps_good": (0, 255, 0),
-    "fps_warn": (255, 255, 0),
-    "fps_crit": (255, 0, 0)
-}
-
-def get_buffer_limit(multiplier: float = 1.0) -> int:
-    """Calculates the memory cap for rendering buffers based on hardware scaling."""
-    return int(MAX_BUFFER_SIZE * multiplier)
-
-# Global session flag
-SESSION_ID: Final[str] = "game-performance-75-dev"
-
-# Engine state constants
-ENGINE_STATES: Final[Tuple[str, ...]] = ("INIT", "LOADING", "RUNNING", "HALTED")
+VERSION: Final = "0.7.5-stable"
