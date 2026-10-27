@@ -1,27 +1,30 @@
-class PerformanceError(Exception):
-    """Base exception for the game-performance-75 engine."""
+class PerformanceThresholdError(Exception):
+    """Raised when game metrics drop below acceptable thresholds."""
+    def __init__(self, metric, value, threshold):
+        self.message = f"Critical {metric} drop: {value} (min: {threshold})"
+        super().__init__(self.message)
 
-class ResourceThrottlingError(PerformanceError):
-    """Raised when the engine detects a frame rate bottleneck."""
-    def __init__(self, frame_time: float, threshold: float):
-        self.msg = f"Frame time {frame_time:.4f}s exceeded threshold of {threshold:.4f}s"
-        super().__init__(self.msg)
-
-class CacheOverflowError(PerformanceError):
-    """Raised when asset preloading exceeds allocated RAM."""
-    def __init__(self, size_mb: int, limit_mb: int):
-        self.msg = f"Cache usage at {size_mb}MB, limit {limit_mb}MB reached"
-        super().__init__(self.msg)
-
-class GraphicsPipelineError(PerformanceError):
-    """Raised when the rendering backend fails to sync."""
+class ResourceLeakWarning(Warning):
+    """Non-fatal warning for potential memory or object leaks."""
     pass
 
-class AssetSerializationError(PerformanceError):
-    """Custom failure for rapid game asset state exports."""
-    def __init__(self, asset_id: str):
-        super().__init__(f"Serialization failed for object ID: {asset_id}")
+class HardwareAbstractionError(Exception):
+    """Raised when low-level driver calls fail during frame rendering."""
+    pass
 
-def raise_if_lagging(current: float, max_allowable: float):
-    if current > max_allowable:
-        raise ResourceThrottlingError(current, max_allowable)
+def raise_if_laggy(fps, target=60):
+    if fps < target:
+        raise PerformanceThresholdError("FPS", fps, target)
+
+class ErrorFactory:
+    @staticmethod
+    def critical_shutdown(reason):
+        return RuntimeError(f"[CRITICAL] {reason.upper()} - Terminating Engine")
+
+def safe_execute(func, *args, **kwargs):
+    try:
+        return func(*args, **kwargs)
+    except Exception as e:
+        return ErrorFactory.critical_shutdown(str(e))
+
+__all__ = ['PerformanceThresholdError', 'ResourceLeakWarning', 'HardwareAbstractionError', 'raise_if_laggy', 'ErrorFactory', 'safe_execute']
