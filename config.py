@@ -2,35 +2,38 @@ import json
 import os
 from typing import Any, Dict
 
-class ConfigLoader:
-    """Dynamic attribute-based configuration management for gaming performance."""
-    def __init__(self, defaults: Dict[str, Any], path: str = 'settings.json'):
-        self._defaults = defaults
-        self._path = path
-        self._data = defaults.copy()
-        self._load_from_disk()
+class GameConfig:
+    DEFAULT_SETTINGS = {
+        "frame_rate": 60,
+        "resolution": [1920, 1080],
+        "vsync": True,
+        "debug_mode": False
+    }
 
-    def _load_from_disk(self) -> None:
-        if os.path.exists(self._path):
-            try:
-                with open(self._path, 'r') as f:
-                    self._data.update(json.load(f))
-            except (json.JSONDecodeError, IOError):
-                pass
+    def __init__(self, path: str = "settings.json"):
+        self.path = path
+        self.settings = self._load()
 
-    def __getattr__(self, name: str) -> Any:
-        return self._data.get(name, self._defaults.get(name))
+    def _load(self) -> Dict[str, Any]:
+        if not os.path.exists(self.path):
+            return self.DEFAULT_SETTINGS
+        try:
+            with open(self.path, "r") as f:
+                loaded = json.load(f)
+                return {**self.DEFAULT_SETTINGS, **loaded}
+        except (json.JSONDecodeError, IOError):
+            return self.DEFAULT_SETTINGS
 
     def __getitem__(self, key: str) -> Any:
-        return self._data.get(key)
+        return self.settings.get(key, self.DEFAULT_SETTINGS.get(key))
 
-def get_game_config() -> ConfigLoader:
-    defaults = {
-        "fps_limit": 144,
-        "vsync": True,
-        "texture_quality": "ultra",
-        "enable_raytracing": False
-    }
-    return ConfigLoader(defaults)
+    def __getattr__(self, name: str) -> Any:
+        if name in self.settings:
+            return self.settings[name]
+        raise AttributeError(f"Config key '{name}' not found")
 
-config = get_game_config()
+    def save(self) -> None:
+        with open(self.path, "w") as f:
+            json.dump(self.settings, f, indent=4)
+
+settings = GameConfig()
