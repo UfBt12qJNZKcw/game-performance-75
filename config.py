@@ -1,39 +1,37 @@
-import json
 import os
 from typing import Any, Dict
 
-class GameConfig:
-    DEFAULT_SETTINGS = {
-        "frame_rate": 60,
-        "resolution": [1920, 1080],
-        "vsync": True,
-        "debug_mode": False
+class Settings:
+    DEFAULTS = {
+        "frame_rate_cap": 144,
+        "resolution": (1920, 1080),
+        "texture_quality": "ultra",
+        "enable_raytracing": False
     }
 
-    def __init__(self, path: str = "settings.json"):
-        self.path = path
-        self.settings = self._load()
+    def __init__(self, env_prefix: str = "GAME_"):
+        self.data = self.DEFAULTS.copy()
+        self._load_from_env(env_prefix)
 
-    def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.path):
-            return self.DEFAULT_SETTINGS
-        try:
-            with open(self.path, "r") as f:
-                loaded = json.load(f)
-                return {**self.DEFAULT_SETTINGS, **loaded}
-        except (json.JSONDecodeError, IOError):
-            return self.DEFAULT_SETTINGS
-
-    def __getitem__(self, key: str) -> Any:
-        return self.settings.get(key, self.DEFAULT_SETTINGS.get(key))
+    def _load_from_env(self, prefix: str) -> None:
+        for key in self.data:
+            env_key = f"{prefix}{key.upper()}"
+            val = os.getenv(env_key)
+            if val is not None:
+                try:
+                    self.data[key] = type(self.data[key])(val)
+                except (ValueError, TypeError):
+                    pass
 
     def __getattr__(self, name: str) -> Any:
-        if name in self.settings:
-            return self.settings[name]
-        raise AttributeError(f"Config key '{name}' not found")
+        if name in self.data:
+            return self.data[name]
+        raise AttributeError(f"config has no attribute {name}")
 
-    def save(self) -> None:
-        with open(self.path, "w") as f:
-            json.dump(self.settings, f, indent=4)
+    def __getitem__(self, key: str) -> Any:
+        return self.data[key]
 
-settings = GameConfig()
+    def __repr__(self) -> str:
+        return f"<Config(items={len(self.data)})>"
+
+config = Settings()
