@@ -1,35 +1,36 @@
+import gc
 import time
-from functools import wraps
-from typing import Any, Callable
+import logging
+from typing import Callable, Any
 
-def throttled_telemetry(interval: float = 0.5):
-    def decorator(func: Callable):
-        last_called = {'time': 0.0}
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            now = time.perf_counter()
-            if now - last_called['time'] > interval:
-                last_called['time'] = now
-                return func(*args, **kwargs)
-            return None
+class PerformanceOptimizer:
+    def __init__(self, threshold_ms: float = 16.6):
+        self.threshold = threshold_ms
+        self.logger = logging.getLogger('game-perf-75')
+
+    def frame_monitor(self, func: Callable) -> Callable:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            duration = (time.perf_counter() - start) * 1000
+            if duration > self.threshold:
+                self.logger.warning(f'Frame spike detected: {duration:.2f}ms in {func.__name__}')
+            return result
         return wrapper
-    return decorator
 
-class FrameDeltaBuffer:
-    def __init__(self, size: int = 60):
-        self.size = size
-        self.buffer = []
+    @staticmethod
+    def purge_unreferenced_assets():
+        gc.collect()
+        return True
 
-    def push(self, delta: float):
-        self.buffer.append(delta)
-        if len(self.buffer) > self.size:
-            self.buffer.pop(0)
+class ResourceRegistry:
+    _store = {}
 
-    @property
-    def avg_fps(self) -> float:
-        if not self.buffer: return 0.0
-        avg = sum(self.buffer) / len(self.buffer)
-        return 1.0 / avg if avg > 0 else 0.0
+    @classmethod
+    def register(cls, key: str, resource: Any):
+        cls._store[key] = resource
 
-def sanitize_player_metrics(data: dict) -> dict:
-    return {k: float(v) for k, v in data.items() if isinstance(v, (int, float))}
+    @classmethod
+    def sweep(cls):
+        cls._store.clear()
+        gc.collect()
