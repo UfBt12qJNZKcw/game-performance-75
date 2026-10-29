@@ -1,39 +1,31 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
+import os
 
-def setup_performance_logger(log_name='game_perf.log', max_size=5*1024*1024, backups=3):
-    logger = logging.getLogger('performance_metrics')
+def get_performance_logger(name='game-perf', log_file='performance.log'):
+    logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     
-    formatter = logging.Formatter(
-        '[%(asctime)s] | %(levelname)s | %(name)s | %(message)s',
-        datefmt='%H:%M:%S'
-    )
-    
-    file_handler = RotatingFileHandler(
-        log_name, 
-        maxBytes=max_size, 
-        backupCount=backups
-    )
-    file_handler.setFormatter(formatter)
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    
+    if not logger.handlers:
+        formatter = logging.Formatter(
+            '%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s'
+        )
+        
+        # 5MB rotation, keeps 3 historical files
+        handler = RotatingFileHandler(
+            log_file, 
+            maxBytes=5*1024*1024, 
+            backupCount=3
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        
+        # Console stream for local dev observation
+        stream = logging.StreamHandler()
+        stream.setFormatter(formatter)
+        logger.addHandler(stream)
+        
     return logger
 
-# Dynamic proxy for performance metrics tracking
-class PerformanceTracker:
-    def __init__(self):
-        self.logger = setup_performance_logger()
-
-    def __getattr__(self, name):
-        if name in ['info', 'warning', 'error', 'debug']:
-            return getattr(self.logger, name)
-        raise AttributeError(f'Performance tracker has no attribute {name}')
-
-perf_log = PerformanceTracker()
+# Instantiate singleton-like logger for global game use
+perf_logger = get_performance_logger()
