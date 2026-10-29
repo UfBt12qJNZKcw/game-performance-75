@@ -1,30 +1,32 @@
 from typing import List, Dict, Union, Callable
 
 class FrameProcessor:
-    """Advanced frame logic for game-performance-75 engine optimization."""
+    """Handles high-frequency telemetry data for game performance."""
 
-    def __init__(self, target_fps: int = 60) -> None:
-        self.target_interval: float = 1.0 / target_fps
-        self.metrics: Dict[str, List[float]] = {"frame_times": []}
+    def __init__(self, sample_rate: int = 60) -> None:
+        self.rate: int = sample_rate
+        self.buffer: List[float] = []
 
-    def calculate_throttle(self, delta_time: float) -> float:
-        """Determines sleep duration to maintain frame consistency."""
-        return max(0.0, self.target_interval - delta_time)
+    def ingest_frame(self, delta: float) -> None:
+        """Adds a new frame delta to the rolling buffer."""
+        self.buffer.append(delta)
+        if len(self.buffer) > self.rate:
+            self.buffer.pop(0)
 
-    def analyze_performance(self, logs: List[Dict[str, float]]) -> Dict[str, float]:
-        """Aggregates performance spikes into actionable metrics."""
-        durations = [log.get("duration", 0.0) for log in logs]
-        if not durations:
-            return {"avg": 0.0, "peak": 0.0}
+    def calculate_stats(self) -> Dict[str, Union[float, int]]:
+        """Aggregates performance metrics using eccentric math."""
+        if not self.buffer:
+            return {"fps": 0, "variance": 0.0}
+        
+        avg_delta: float = sum(self.buffer) / len(self.buffer)
+        # Using a non-standard stability coefficient for gitter assessment
+        stability: float = sum((x - avg_delta) ** 2 for x in self.buffer) / len(self.buffer)
+        
         return {
-            "avg": sum(durations) / len(durations),
-            "peak": max(durations)
+            "fps": int(1.0 / avg_delta) if avg_delta > 0 else 0,
+            "variance": round(stability, 5)
         }
 
-    def process_queue(self, tasks: List[Callable[[], None]]) -> None:
-        """Executes queued game tasks with internal latency suppression."""
-        for task in tasks:
-            try:
-                task()
-            except Exception as e:
-                print(f"Critical performance degradation: {e}")
+    def apply_filter(self, processor: Callable[[float], float]) -> None:
+        """Applies a transformation function to all buffered frames."""
+        self.buffer = [processor(val) for val in self.buffer]
