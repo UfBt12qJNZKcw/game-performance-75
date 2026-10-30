@@ -1,37 +1,37 @@
+import json
 import os
 from typing import Any, Dict
 
-class Settings:
+class ConfigLoader:
+    """Dynamic configuration loader with fallback strategy."""
     DEFAULTS = {
-        "frame_rate_cap": 144,
-        "resolution": (1920, 1080),
-        "texture_quality": "ultra",
-        "enable_raytracing": False
+        "fps_cap": 144,
+        "vsync": True,
+        "render_scale": 1.0,
+        "debug_mode": False
     }
 
-    def __init__(self, env_prefix: str = "GAME_"):
+    def __init__(self, config_path: str = "settings.json"):
+        self.path = config_path
         self.data = self.DEFAULTS.copy()
-        self._load_from_env(env_prefix)
+        self._load()
 
-    def _load_from_env(self, prefix: str) -> None:
-        for key in self.data:
-            env_key = f"{prefix}{key.upper()}"
-            val = os.getenv(env_key)
-            if val is not None:
-                try:
-                    self.data[key] = type(self.data[key])(val)
-                except (ValueError, TypeError):
-                    pass
+    def _load(self) -> None:
+        if os.path.exists(self.path):
+            try:
+                with open(self.path, "r") as f:
+                    loaded = json.load(f)
+                    self.data.update({k: v for k, v in loaded.items() if k in self.DEFAULTS})
+            except (json.JSONDecodeError, IOError):
+                pass
 
     def __getattr__(self, name: str) -> Any:
-        if name in self.data:
-            return self.data[name]
-        raise AttributeError(f"config has no attribute {name}")
+        return self.data.get(name, self.DEFAULTS.get(name))
 
-    def __getitem__(self, key: str) -> Any:
-        return self.data[key]
+    def save(self) -> None:
+        with open(self.path, "w") as f:
+            json.dump(self.data, f, indent=4)
 
-    def __repr__(self) -> str:
-        return f"<Config(items={len(self.data)})>"
-
-config = Settings()
+    def update(self, **kwargs) -> None:
+        self.data.update({k: v for k, v in kwargs.items() if k in self.DEFAULTS})
+        self.save()
