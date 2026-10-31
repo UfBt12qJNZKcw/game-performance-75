@@ -1,31 +1,34 @@
 import logging
 from logging.handlers import RotatingFileHandler
-import os
+import sys
 
-def get_performance_logger(name='game-perf', log_file='performance.log'):
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    
-    if not logger.handlers:
-        formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s'
-        )
-        
-        # 5MB rotation, keeps 3 historical files
-        handler = RotatingFileHandler(
-            log_file, 
-            maxBytes=5*1024*1024, 
-            backupCount=3
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        
-        # Console stream for local dev observation
-        stream = logging.StreamHandler()
-        stream.setFormatter(formatter)
-        logger.addHandler(stream)
-        
-    return logger
+class PerformanceLogger:
+    _instances = {}
 
-# Instantiate singleton-like logger for global game use
-perf_logger = get_performance_logger()
+    def __new__(cls, name='game_perf_engine', log_file='game_perf.log'):
+        if name not in cls._instances:
+            logger = logging.getLogger(name)
+            logger.setLevel(logging.DEBUG)
+            
+            formatter = logging.Formatter(
+                '%(asctime)s | [%(levelname)s] | %(name)s | %(message)s',
+                datefmt='%H:%M:%S'
+            )
+
+            # Rotating file handler: 5MB per file, keep 3 backups
+            file_handler = RotatingFileHandler(
+                log_file, maxBytes=5*1024*1024, backupCount=3
+            )
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+
+            # Stream to console as well for dev mode
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
+
+            cls._instances[name] = logger
+        return cls._instances[name]
+
+# Singleton accessor for game modules
+get_logger = PerformanceLogger
