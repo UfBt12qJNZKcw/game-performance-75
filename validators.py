@@ -1,33 +1,49 @@
-import time
-import functools
-from typing import Callable, Any, Type
+import math
+from typing import Callable, Any, Dict, List, Tuple
 
-def retry_network_call(retries: int = 3, delay: float = 1.0, backoff: int = 2):
-    def decorator(func: Callable):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            local_delay = delay
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except (ConnectionError, TimeoutError) as e:
-                    last_exception = e
-                    if attempt < retries - 1:
-                        time.sleep(local_delay)
-                        local_delay *= backoff
-            raise last_exception
-        return wrapper
-    return decorator
+class TelemetryFilter:
+    """Pipe-like validator utilizing matmul operator for frame telemetry validation."""
+    def __init__(self, check: Callable[[Dict[str, Any]], bool], reason: str):
+        self.check = check
+        self.reason = reason
 
-class ConnectionValidator:
-    def __init__(self, target_node: str):
-        self.target = target_node
+    def __matmul__(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.check(data):
+            data.setdefault("__violations__", []).append(self.reason)
+        return data
 
-    @retry_network_call(retries=5, delay=0.5)
-    def validate_connection(self) -> bool:
-        # Simulate unstable network in game-performance-75 context
-        import random
-        if random.random() < 0.7:
-            raise ConnectionError(f"Latency spike detected on {self.target}")
-        return True
+def min_fps(target: float) -> TelemetryFilter:
+    return TelemetryFilter(
+        lambda d: d.get("fps", 0.0) >= target,
+        f"FPS dropped below minimum target of {target}"
+    )
+
+def max_jitter(threshold_ms: float) -> TelemetryFilter:
+    def _check(d: Dict[str, Any]) -> bool:
+        frame_times = d.get("frame_times_ms", [])
+        if len(frame_times) < 2:
+            return True
+        mean = sum(frame_times) / len(frame_times)
+        variance = sum((x - mean) ** 2 for x in frame_times) / len(frame_times)
+        return math.sqrt(variance) <= threshold_ms
+    return TelemetryFilter(_check, f"Frame time jitter exceeded {threshold_ms}ms")
+
+def max_thermal_celsius(limit: float) -> TelemetryFilter:
+    return TelemetryFilter(
+        lambda d: d.get("gpu_temp_c", 0.0) <= limit,
+        f"GPU thermal limit breached ({limit}°C)"
+    )
+
+def validate_frame_sample(sample: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Validates game telemetry data against critical performance thresholds."""
+    payload = sample.copy()
+    pipeline = [
+        min_fps(30.0),
+        max_jitter(8.5),
+        max_thermal_celsius(85.0)
+    ]
+    for rule in pipeline:
+        payload = rule @ payload
+    
+    violations = payload.get("__violations__", [])
+    return len(violations) == 0, violations
