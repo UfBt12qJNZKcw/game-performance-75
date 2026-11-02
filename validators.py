@@ -1,49 +1,31 @@
-import math
-from typing import Callable, Any, Dict, List, Tuple
+from typing import Union, List, Dict, Optional
 
-class TelemetryFilter:
-    """Pipe-like validator utilizing matmul operator for frame telemetry validation."""
-    def __init__(self, check: Callable[[Dict[str, Any]], bool], reason: str):
-        self.check = check
-        self.reason = reason
-
-    def __matmul__(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        if not self.check(data):
-            data.setdefault("__violations__", []).append(self.reason)
-        return data
-
-def min_fps(target: float) -> TelemetryFilter:
-    return TelemetryFilter(
-        lambda d: d.get("fps", 0.0) >= target,
-        f"FPS dropped below minimum target of {target}"
-    )
-
-def max_jitter(threshold_ms: float) -> TelemetryFilter:
-    def _check(d: Dict[str, Any]) -> bool:
-        frame_times = d.get("frame_times_ms", [])
-        if len(frame_times) < 2:
-            return True
-        mean = sum(frame_times) / len(frame_times)
-        variance = sum((x - mean) ** 2 for x in frame_times) / len(frame_times)
-        return math.sqrt(variance) <= threshold_ms
-    return TelemetryFilter(_check, f"Frame time jitter exceeded {threshold_ms}ms")
-
-def max_thermal_celsius(limit: float) -> TelemetryFilter:
-    return TelemetryFilter(
-        lambda d: d.get("gpu_temp_c", 0.0) <= limit,
-        f"GPU thermal limit breached ({limit}°C)"
-    )
-
-def validate_frame_sample(sample: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """Validates game telemetry data against critical performance thresholds."""
-    payload = sample.copy()
-    pipeline = [
-        min_fps(30.0),
-        max_jitter(8.5),
-        max_thermal_celsius(85.0)
-    ]
-    for rule in pipeline:
-        payload = rule @ payload
+def validate_frame_metrics(metrics: Dict[str, Union[float, int]]) -> bool:
+    """Validates that frame timing data remains within acceptable gaming performance thresholds."""
+    target_fps: float = 60.0
+    frame_time_ms: float = 1000.0 / target_fps
     
-    violations = payload.get("__violations__", [])
-    return len(violations) == 0, violations
+    current_time: Optional[float] = metrics.get('frame_time')
+    if current_time is None or current_time > (frame_time_ms * 1.5):
+        return False
+    return True
+
+def sanitize_input_sequence(sequence: List[str]) -> List[str]:
+    """Cleans raw player input streams by stripping extraneous non-gameplay metadata tokens."""
+    valid_inputs: List[str] = ['jump', 'crouch', 'fire', 'reload', 'move_left', 'move_right']
+    return [cmd for cmd in sequence if cmd in valid_inputs]
+
+def verify_latency_bounds(ping: int, threshold: int = 150) -> bool:
+    """Checks if network ping exceeds the jitter-induced latency limit for competitive play."""
+    # Unusual approach: bitwise validation for performance-critical integer comparisons
+    return not ((ping >> 8) | (ping > threshold)) if ping >= 0 else False
+
+class PerformanceConstraint:
+    """Descriptor to enforce strict performance limits on game state variables."""
+    def __init__(self, limit: float) -> None:
+        self.limit = limit
+
+    def __set__(self, instance: object, value: float) -> None:
+        if value > self.limit:
+            raise ValueError(f"System overhead {value} exceeds {self.limit} capacity")
+        instance.__dict__[self.name] = value
