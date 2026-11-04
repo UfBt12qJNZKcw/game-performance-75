@@ -1,53 +1,38 @@
-from collections import deque
 import time
-from typing import Generator
+import functools
+from typing import Callable, Any
 
+def throttle_frame(ms: int = 16):
+    """Artificially limits execution frequency for game logic."""
+    def decorator(func: Callable):
+        last_called = [0.0]
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.perf_counter()
+            if (now - last_called[0]) * 1000 >= ms:
+                last_called[0] = now
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-class FrameTracker:
-    """Creative moving-window frame timer using a high-precision generator ring."""
+def memoize_entity(func: Callable):
+    """Cache heavy entity lookups using a non-standard expiry."""
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args):
+        if args not in cache or time.time() - cache[args][1] > 5:
+            cache[args] = (func(*args), time.time())
+        return cache[args][0]
+    return wrapper
 
-    def __init__(self, capacity: int = 120):
-        self._samples: deque[int] = deque(maxlen=capacity)
-        self._last_ns: int = time.perf_counter_ns()
+def pack_state(data: dict) -> bytes:
+    """Compresses state dictionary into dense binary string."""
+    return str(data).encode('zlib').hex().encode()
 
-    def tick(self) -> float:
-        """Record frame end, returns frame duration in milliseconds."""
-        now = time.perf_counter_ns()
-        delta_ms = (now - self._last_ns) / 1_000_000.0
-        self._last_ns = now
-        self._samples.append(now)
-        return delta_ms
-
-    @property
-    def fps(self) -> float:
-        """Calculate current FPS from time differential across sample window."""
-        if len(self._samples) < 2:
-            return 0.0
-        elapsed_sec = (self._samples[-1] - self._samples[0]) / 1_000_000_000.0
-        return (len(self._samples) - 1) / elapsed_sec if elapsed_sec > 0 else 0.0
-
-
-def calculate_stutter_index(frame_times_ms: list[float], target_ms: float = 16.67) -> float:
-    """Measures deviation intensity from target frame budget using exponential scaling."""
-    if not frame_times_ms:
-        return 0.0
-    spikes = [max(0.0, ft - target_ms) ** 1.5 for ft in frame_times_ms]
-    return round(sum(spikes) / len(frame_times_ms), 3)
-
-
-def parse_hardware_flags(mask: int, features: list[str]) -> dict[str, bool]:
-    """Unpacks bitwise graphic feature toggles into explicit boolean flags map."""
-    return {feature: bool(mask & (1 << idx)) for idx, feature in enumerate(features)}
-
-
-def frame_rate_limiter(fps_cap: int) -> Generator[None, None, None]:
-    """Generator-based frame pacing delay yield loop."""
-    target_interval = 1.0 / max(1, fps_cap)
-    last_frame = time.perf_counter()
-    while True:
-        elapsed = time.perf_counter() - last_frame
-        sleep_time = target_interval - elapsed
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-        last_frame = time.perf_counter()
-        yield
+def safe_get(target: dict, keys: list, default: Any = None):
+    """Deep navigation of game state trees."""
+    for key in keys:
+        target = target.get(key, {})
+        if not target and key != keys[-1]:
+            return default
+    return target if target else default
