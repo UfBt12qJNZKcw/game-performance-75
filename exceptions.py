@@ -1,30 +1,30 @@
-class PerformanceThresholdError(Exception):
-    """Raised when game metrics drop below acceptable thresholds."""
-    def __init__(self, metric, value, threshold):
-        self.message = f"Critical {metric} drop: {value} (min: {threshold})"
-        super().__init__(self.message)
+from typing import Optional, Dict, Any
 
-class ResourceLeakWarning(Warning):
-    """Non-fatal warning for potential memory or object leaks."""
+class PerformanceError(Exception):
+    """Base exception class for game-performance-75 engine issues."""
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(message)
+        self.context = context or {}
+
+class FrameRateDropError(PerformanceError):
+    """Raised when frame timing thresholds are consistently violated."""
+    def __str__(self) -> str:
+        return f"FPS instability detected: {self.args[0]} | Context: {self.context}"
+
+class ResourceLeakError(PerformanceError):
+    """Raised when asset memory footprint exceeds defined heap limits."""
     pass
 
-class HardwareAbstractionError(Exception):
-    """Raised when low-level driver calls fail during frame rendering."""
-    pass
+class ThreadStarvationError(PerformanceError):
+    """Raised when main game loop thread experiences latency spikes."""
+    def __init__(self, thread_id: int, latency_ms: float) -> None:
+        msg = f"Critical latency on thread {thread_id}"
+        super().__init__(msg, {"latency": latency_ms, "thread": thread_id})
 
-def raise_if_laggy(fps, target=60):
-    if fps < target:
-        raise PerformanceThresholdError("FPS", fps, target)
-
-class ErrorFactory:
-    @staticmethod
-    def critical_shutdown(reason):
-        return RuntimeError(f"[CRITICAL] {reason.upper()} - Terminating Engine")
-
-def safe_execute(func, *args, **kwargs):
-    try:
-        return func(*args, **kwargs)
-    except Exception as e:
-        return ErrorFactory.critical_shutdown(str(e))
-
-__all__ = ['PerformanceThresholdError', 'ResourceLeakWarning', 'HardwareAbstractionError', 'raise_if_laggy', 'ErrorFactory', 'safe_execute']
+def raise_if_lagging(fps: float, threshold: float = 30.0) -> None:
+    """Validation utility to trigger exceptions based on frame metrics."""
+    if fps < threshold:
+        raise FrameRateDropError(
+            "Frame rate below performance target",
+            {"current_fps": fps, "min_target": threshold}
+        )
