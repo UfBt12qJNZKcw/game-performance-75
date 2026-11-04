@@ -1,36 +1,39 @@
-import gc
+import functools
 import time
-import logging
-from typing import Callable, Any
 
-class PerformanceOptimizer:
-    def __init__(self, threshold_ms: float = 16.6):
-        self.threshold = threshold_ms
-        self.logger = logging.getLogger('game-perf-75')
+class HotCache:
+    def __init__(self, capacity=128):
+        self.capacity = capacity
+        self.cache = {}
+        self.order = []
 
-    def frame_monitor(self, func: Callable) -> Callable:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            start = time.perf_counter()
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (args, tuple(sorted(kwargs.items())))
+            if key in self.cache:
+                self.order.remove(key)
+                self.order.append(key)
+                return self.cache[key]
             result = func(*args, **kwargs)
-            duration = (time.perf_counter() - start) * 1000
-            if duration > self.threshold:
-                self.logger.warning(f'Frame spike detected: {duration:.2f}ms in {func.__name__}')
+            if len(self.cache) >= self.capacity:
+                del self.cache[self.order.pop(0)]
+            self.cache[key] = result
+            self.order.append(key)
             return result
         return wrapper
 
-    @staticmethod
-    def purge_unreferenced_assets():
-        gc.collect()
-        return True
+@HotCache(capacity=256)
+def calculate_frame_geometry(vertex_data, matrix):
+    transformed = []
+    for v in vertex_data:
+        x = v[0] * matrix[0] + v[1] * matrix[1] + matrix[2]
+        y = v[0] * matrix[3] + v[1] * matrix[4] + matrix[5]
+        transformed.append((x, y))
+    return transformed
 
-class ResourceRegistry:
-    _store = {}
+def fast_batch_process(data_stream, processor_func):
+    return [processor_func(item) for item in data_stream]
 
-    @classmethod
-    def register(cls, key: str, resource: Any):
-        cls._store[key] = resource
-
-    @classmethod
-    def sweep(cls):
-        cls._store.clear()
-        gc.collect()
+if __name__ == '__main__':
+    pass
