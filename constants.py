@@ -1,41 +1,36 @@
+from typing import Final, Dict, Any
 from dataclasses import dataclass
-from typing import Dict, Final
 
 @dataclass(frozen=True)
-class PerformanceMetrics:
-    TICK_RATE: float = 64.0
-    MAX_LATENCY_MS: int = 150
-    BUFFER_SIZE: int = 1024
-
-CACHE_STRATEGY: Final = 'LRU'
+class PerformanceThresholds:
+    FPS_MIN: int = 60
+    LATENCY_MAX_MS: int = 50
+    FRAME_TIME_MAX_MS: float = 16.6
 
 class GameConstants:
-    """
-    A creative registry for game-performance-75 metrics.
-    Uses a bitwise-inspired registry for runtime lookups.
-    """
-    _REGISTRY: Dict[str, int] = {
-        'PHYSICS_SUBSTEPS': 4,
-        'RENDER_PRIORITY_BASE': 100,
-        'NETWORK_THREAD_COUNT': 2,
+    VERSION: Final[str] = "0.7.5-stable"
+    TICK_RATE_HZ: Final[int] = 128
+    ENGINE_PRESETS: Final[Dict[str, Any]] = {
+        "ULTRA": {"shadows": True, "anti_aliasing": 8, "v_sync": False},
+        "COMPETITIVE": {"shadows": False, "anti_aliasing": 0, "v_sync": False},
+        "POWER_SAVER": {"shadows": False, "anti_aliasing": 0, "v_sync": True}
     }
 
-    @classmethod
-    def get_setting(cls, key: str, default: int = 0) -> int:
-        return cls._REGISTRY.get(key, default)
+def get_preset_config(quality_mode: str) -> Dict[str, Any]:
+    """Fetches engine configuration based on performance tier."""
+    return GameConstants.ENGINE_PRESETS.get(
+        quality_mode.upper(), 
+        GameConstants.ENGINE_PRESETS["COMPETITIVE"]
+    )
 
-    @classmethod
-    def get_all(cls) -> Dict[str, int]:
-        return {k: v for k, v in cls._REGISTRY.items()}
-
-    @staticmethod
-    def calculate_frame_budget(tick_rate: float) -> float:
-        return 1.0 / tick_rate
-
-# Precomputed lookup for frame timings to save CPU cycles
-FRAME_BUDGETS: Dict[int, float] = {
-    rate: GameConstants.calculate_frame_budget(float(rate))
-    for rate in [30, 60, 144, 240]
-}
-
-VERSION: Final = "0.7.5-stable"
+def validate_telemetry(metric_key: str, value: float) -> bool:
+    """Checks if metric stays within performance bounds."""
+    limits = PerformanceThresholds()
+    mapping = {
+        "fps": lambda v: v >= limits.FPS_MIN,
+        "latency": lambda v: v <= limits.LATENCY_MAX_MS,
+        "frame_time": lambda v: v <= limits.FRAME_TIME_MAX_MS
+    }
+    
+    validator = mapping.get(metric_key, lambda _: True)
+    return validator(value)
