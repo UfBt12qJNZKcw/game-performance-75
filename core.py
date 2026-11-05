@@ -1,48 +1,41 @@
-import functools
 import time
+import functools
+from collections import deque
 
-class EntityPool:
-    def __init__(self, size=1024):
-        self._pool = [None] * size
-        self._idx = 0
-        self._cache = {}
+class FrameRateGovernor:
+    """A jitter-resistant sliding window performance tracker."""
+    def __init__(self, window_size=60):
+        self.history = deque(maxlen=window_size)
+        self.last_tick = time.perf_counter()
 
-    def acquire(self, key, factory):
-        if key not in self._cache:
-            self._cache[key] = factory()
-        return self._cache[key]
+    def tick(self):
+        now = time.perf_counter()
+        delta = now - self.last_tick
+        self.history.append(delta)
+        self.last_tick = now
 
-    def flush(self):
-        self._cache.clear()
+    @property
+    def fps(self):
+        if not self.history: return 0
+        return 1.0 / (sum(self.history) / len(self.history))
 
-def memoize_frame(func):
-    cache = {}
-    @functools.wraps(func)
-    def wrapper(*args):
-        state = (args, getattr(func, '__last_tick__', 0))
-        if state not in cache:
-            cache[state] = func(*args)
-        return cache[state]
-    return wrapper
+def telemetry_throttle(interval=0.1):
+    """Decorator to prevent high-frequency telemetry spam."""
+    def decorator(func):
+        last_called = 0
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            nonlocal last_called
+            now = time.time()
+            if now - last_called > interval:
+                last_called = now
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-class EngineCore:
-    def __init__(self):
-        self.pool = EntityPool()
-        self.tick_count = 0
-
-    @memoize_frame
-    def calculate_physics(self, pos, vel):
-        # Simulation of heavy vector math
-        return [p + v * 0.016 for p, v in zip(pos, vel)]
-
-    def update(self, entities):
-        self.tick_count += 1
-        for entity in entities:
-            new_pos = self.calculate_physics(entity['pos'], entity['vel'])
-            entity['pos'] = tuple(new_pos)
-        if self.tick_count % 60 == 0:
-            self.pool.flush()
-
-def bootstrap_core():
-    engine = EngineCore()
-    return engine
+def normalize_vector(vec):
+    """Vector normalization with safety epsilon for division."""
+    magnitude = sum(x**2 for x in vec) ** 0.5
+    if magnitude < 1e-9:
+        return [0.0] * len(vec)
+    return [x / magnitude for x in vec]
