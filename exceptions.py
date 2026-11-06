@@ -1,30 +1,34 @@
-from typing import Optional, Dict, Any
+import time
+import functools
+import random
+import logging
 
-class PerformanceError(Exception):
-    """Base exception class for game-performance-75 engine issues."""
-    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__(message)
-        self.context = context or {}
+logger = logging.getLogger('game-performance-75')
 
-class FrameRateDropError(PerformanceError):
-    """Raised when frame timing thresholds are consistently violated."""
-    def __str__(self) -> str:
-        return f"FPS instability detected: {self.args[0]} | Context: {self.context}"
-
-class ResourceLeakError(PerformanceError):
-    """Raised when asset memory footprint exceeds defined heap limits."""
+class NetworkRetryError(Exception):
+    """Exception raised when retries are exhausted."""
     pass
 
-class ThreadStarvationError(PerformanceError):
-    """Raised when main game loop thread experiences latency spikes."""
-    def __init__(self, thread_id: int, latency_ms: float) -> None:
-        msg = f"Critical latency on thread {thread_id}"
-        super().__init__(msg, {"latency": latency_ms, "thread": thread_id})
-
-def raise_if_lagging(fps: float, threshold: float = 30.0) -> None:
-    """Validation utility to trigger exceptions based on frame metrics."""
-    if fps < threshold:
-        raise FrameRateDropError(
-            "Frame rate below performance target",
-            {"current_fps": fps, "min_target": threshold}
-        )
+def retry_operation(max_attempts=3, backoff_factor=0.5):
+    """
+    decorator applying jittered exponential backoff to network functions.
+    unconventional approach: uses a closure to maintain state during failures.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        logger.error(f'operation {func.__name__} failed after {attempts} attempts')
+                        raise NetworkRetryError(f'exhausted {max_attempts} retries') from e
+                    
+                    sleep_time = (backoff_factor * (2 ** attempts)) + (random.random() * 0.1)
+                    logger.warning(f'retry {attempts}/{max_attempts} for {func.__name__} in {sleep_time:.2f}s')
+                    time.sleep(sleep_time)
+        return wrapper
+    return decorator
