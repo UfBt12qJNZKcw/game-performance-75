@@ -1,40 +1,63 @@
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict
 
-class ConfigLoader:
-    def __init__(self, file_path: str = "config.json", defaults: Dict[str, Any] = None):
-        self.file_path = file_path
-        self.defaults = defaults or {}
-        self._data = self._load()
 
-    def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.file_path):
-            return self.defaults
-        try:
-            with open(self.file_path, "r") as f:
-                loaded = json.load(f)
-                return {**self.defaults, **loaded}
-        except (json.JSONDecodeError, IOError):
-            return self.defaults
+class PerformanceConfig(dict):
+    """Gaming performance configuration loader with hardware-aware defaults."""
 
-    def get(self, key: str, fallback: Any = None) -> Any:
-        return self._data.get(key, fallback)
+    DEFAULTS: Dict[str, Any] = {
+        "target_fps": 144,
+        "max_render_threads": max(1, (os.cpu_count() or 4) - 1),
+        "vsync": False,
+        "dynamic_resolution": True,
+        "min_scale_factor": 0.65,
+        "shader_cache_size_mb": 1024,
+        "texture_budget_mb": 4096,
+    }
+
+    def __init__(self, config_path: str | Path | None = None):
+        super().__init__(self.DEFAULTS)
+        self.config_path = Path(config_path) if config_path else None
+        self._load_from_disk()
+        self._load_env_overrides()
+
+    def _load_from_disk(self) -> None:
+        if self.config_path and self.config_path.exists():
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    user_data = json.load(f)
+                    if isinstance(user_data, dict):
+                        self.update({k: v for k, v in user_data.items() if k in self.DEFAULTS})
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    def _load_env_overrides(self) -> None:
+        prefix = "GAME_PERF_"
+        for key, default_val in self.DEFAULTS.items():
+            env_key = f"{prefix}{key.upper()}"
+            if env_key in os.environ:
+                val = os.environ[env_key]
+                target_type = type(default_val)
+                if target_type is bool:
+                    self[key] = val.lower() in ("true", "1", "yes", "on")
+                else:
+                    try:
+                        self[key] = target_type(val)
+                    except ValueError:
+                        pass
 
     def __getattr__(self, name: str) -> Any:
-        if name in self._data:
-            return self._data[name]
-        raise AttributeError(f"config key '{name}' missing")
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(f"No performance parameter named '{name}'")
 
-    def save(self) -> None:
-        with open(self.file_path, "w") as f:
-            json.dump(self._data, f, indent=4)
-
-# Dynamic proxy for performance tuning
-class GameConfig(ConfigLoader):
-    def __init__(self):
-        super().__init__(defaults={
-            "fps_cap": 144,
-            "vsync": False,
-            "render_scale": 1.0
-        })
+    def sync_to_disk(self) -> bool:
+        if not self.config_path:
+            return False
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump(dict(self), f, indent=2)
+        return True
