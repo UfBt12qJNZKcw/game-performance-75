@@ -1,34 +1,24 @@
-import time
-import functools
-import random
-import logging
+from typing import Optional, Dict, Any
 
-logger = logging.getLogger('game-performance-75')
+class PerformanceError(Exception):
+    """Base exception for the game-performance-75 engine."""
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None) -> None:
+        self.context = context or {}
+        super().__init__(f"{message} | context: {self.context}")
 
-class NetworkRetryError(Exception):
-    """Exception raised when retries are exhausted."""
-    pass
+class FrameDropError(PerformanceError):
+    """Raised when frame time exceeds the frame budget."""
+    def __init__(self, frame_time: float, threshold: float) -> None:
+        msg = f"frame time {frame_time:.2f}ms exceeded threshold {threshold}ms"
+        super().__init__(msg, {"frame_time": frame_time, "threshold": threshold})
 
-def retry_operation(max_attempts=3, backoff_factor=0.5):
-    """
-    decorator applying jittered exponential backoff to network functions.
-    unconventional approach: uses a closure to maintain state during failures.
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        logger.error(f'operation {func.__name__} failed after {attempts} attempts')
-                        raise NetworkRetryError(f'exhausted {max_attempts} retries') from e
-                    
-                    sleep_time = (backoff_factor * (2 ** attempts)) + (random.random() * 0.1)
-                    logger.warning(f'retry {attempts}/{max_attempts} for {func.__name__} in {sleep_time:.2f}s')
-                    time.sleep(sleep_time)
-        return wrapper
-    return decorator
+class MemoryLeakWarning(PerformanceError):
+    """Triggered when heap allocation trends defy gravity."""
+    def __init__(self, usage_mb: float, peak_mb: float) -> None:
+        msg = f"unstable heap growth detected at {usage_mb}MB"
+        super().__init__(msg, {"usage": usage_mb, "peak": peak_mb})
+
+class ThermalThrottleEvent(PerformanceError):
+    """Signals that the CPU/GPU is melting down."""
+    def __init__(self, temp_c: float) -> None:
+        super().__init__(f"thermal limit reached: {temp_c}C", {"temp": temp_c})
