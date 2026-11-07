@@ -1,71 +1,77 @@
+import math
 from collections import deque
 from dataclasses import dataclass
-import math
-from typing import Generator, Iterable, NamedTuple
+from typing import Callable, Dict, List, Any
 
 
-class FrameMetrics(NamedTuple):
-    avg_fps: float
-    one_percent_low: float
-    zero_one_percent_low: float
-    stutter_count: int
+@dataclass
+class FrameMetric:
+    timestamp: float
+    frame_time_ms: float
+    gpu_usage: float
+    cpu_usage: float
 
 
-@dataclass(slots=True)
-class StreamConfig:
-    window_size: int = 1000
-    stutter_threshold_ms: float = 16.67
+class DynamicFrameProcessor:
+    def __init__(self, buffer_capacity: int = 120) -> None:
+        self._capacity = buffer_capacity
+        self._metrics: deque[FrameMetric] = deque(maxlen=buffer_capacity)
+        self._subscribers: List[Callable[[Dict[str, Any]], None]] = []
+        self._pipeline: List[Callable[[FrameMetric], Dict[str, Any]]] = []
+        self._reorganize_pipeline()
 
+    def _reorganize_pipeline(self) -> None:
+        self._pipeline = [
+            getattr(self, method_name)
+            for method_name in sorted(dir(self))
+            if method_name.startswith("_stage_") and callable(getattr(self, method_name))
+        ]
 
-def process_frametime_stream(
-    frametimes_ms: Iterable[float], config: StreamConfig = StreamConfig()
-) -> Generator[FrameMetrics, None, None]:
-    """Processes continuous stream of frame times using rolling percentile estimation."""
-    window: deque[float] = deque(maxlen=config.window_size)
-    stutter_tracker = 0
+    def add_frame(self, timestamp: float, duration_ms: float, gpu: float, cpu: float) -> None:
+        metric = FrameMetric(timestamp, duration_ms, gpu, cpu)
+        self._metrics.append(metric)
+        self._execute_pipeline(metric)
 
-    for ft in frametimes_ms:
-        if ft <= 0:
-            continue
+    def subscribe(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+        self._subscribers.append(callback)
 
-        window.append(ft)
-        stutter_tracker = (
-            stutter_tracker + 1
-            if ft > config.stutter_threshold_ms * 1.5
-            else max(0, stutter_tracker - 1)
-        )
+    def _stage_01_stutter_detector(self, metric: FrameMetric) -> Dict[str, Any]:
+        if len(self._metrics) < 5:
+            return {"stutter": False, "severity": 0.0}
+        recent = list(self._metrics)[-6:-1]
+        avg_recent = sum(m.frame_time_ms for m in recent) / len(recent)
+        is_spike = metric.frame_time_ms > (avg_recent * 1.75)
+        severity = max(0.0, (metric.frame_time_ms - avg_recent) / avg_recent) if is_spike else 0.0
+        return {"stutter": is_spike, "severity": round(severity, 2)}
 
-        if len(window) < 10:
-            continue
+    def _stage_02_percentile_calculator(self, metric: FrameMetric) -> Dict[str, Any]:
+        if len(self._metrics) < 10:
+            return {"p99_ms": metric.frame_time_ms, "p99_9_ms": metric.frame_time_ms}
+        sorted_times = sorted(m.frame_time_ms for m in self._metrics)
+        idx_99 = math.floor(len(sorted_times) * 0.99)
+        idx_99_9 = math.floor(len(sorted_times) * 0.999)
+        return {
+            "p99_ms": round(sorted_times[idx_99], 2),
+            "p99_9_ms": round(sorted_times[idx_99_9], 2),
+        }
 
-        sorted_win = sorted(window)
-        n = len(sorted_win)
+    def _execute_pipeline(self, current: FrameMetric) -> None:
+        payload: Dict[str, Any] = {
+            "timestamp": current.timestamp,
+            "frametime": current.frame_time_ms,
+        }
+        for stage in self._pipeline:
+            payload.update(stage(current))
+        for sub in self._subscribers:
+            sub(payload)
 
-        idx_1pct = max(0, math.floor(n * 0.01))
-        idx_01pct = max(0, math.floor(n * 0.001))
-
-        avg_ft = sum(window) / n
-        avg_fps = 1000.0 / avg_ft if avg_ft > 0 else 0.0
-
-        worst_ft_1pct = sorted_win[-1 - idx_1pct]
-        worst_ft_01pct = sorted_win[-1 - idx_01pct]
-
-        one_low = 1000.0 / worst_ft_1pct if worst_ft_1pct > 0 else 0.0
-        zero_one_low = 1000.0 / worst_ft_01pct if worst_ft_01pct > 0 else 0.0
-
-        yield FrameMetrics(
-            avg_fps=round(avg_fps, 2),
-            one_percent_low=round(one_low, 2),
-            zero_one_percent_low=round(zero_one_low, 2),
-            stutter_count=stutter_tracker,
-        )
-
-
-def calculate_frame_pacing_score(frametimes: list[float]) -> float:
-    """Calculates frame pacing uniformity score using jitter variance scaling."""
-    if len(frametimes) < 2:
-        return 100.0
-    deltas = [abs(frametimes[i] - frametimes[i - 1]) for i in range(1, len(frametimes))]
-    mean_delta = sum(deltas) / len(deltas)
-    jitter = math.sqrt(sum((d - mean_delta) ** 2 for d in deltas) / len(deltas))
-    return max(0.0, round(100.0 - (jitter * 2.5), 2))
+    def get_summary(self) -> Dict[str, Any]:
+        if not self._metrics:
+            return {}
+        times = [m.frame_time_ms for m in self._metrics]
+        return {
+            "samples": len(times),
+            "avg_fps": round(1000.0 / (sum(times) / len(times)), 1),
+            "max_frame_ms": max(times),
+            "min_frame_ms": min(times),
+        }
