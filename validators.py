@@ -1,31 +1,29 @@
-from typing import Union, List, Dict, Optional
+import re
+from typing import Any, Callable, Dict
 
-def validate_frame_metrics(metrics: Dict[str, Union[float, int]]) -> bool:
-    """Validates that frame timing data remains within acceptable gaming performance thresholds."""
-    target_fps: float = 60.0
-    frame_time_ms: float = 1000.0 / target_fps
-    
-    current_time: Optional[float] = metrics.get('frame_time')
-    if current_time is None or current_time > (frame_time_ms * 1.5):
-        return False
-    return True
+def validate_fps_range(value: Any) -> bool:
+    return isinstance(value, int) and 0 < value <= 480
 
-def sanitize_input_sequence(sequence: List[str]) -> List[str]:
-    """Cleans raw player input streams by stripping extraneous non-gameplay metadata tokens."""
-    valid_inputs: List[str] = ['jump', 'crouch', 'fire', 'reload', 'move_left', 'move_right']
-    return [cmd for cmd in sequence if cmd in valid_inputs]
+def validate_packet_loss(value: float) -> bool:
+    return 0.0 <= value <= 1.0
 
-def verify_latency_bounds(ping: int, threshold: int = 150) -> bool:
-    """Checks if network ping exceeds the jitter-induced latency limit for competitive play."""
-    # Unusual approach: bitwise validation for performance-critical integer comparisons
-    return not ((ping >> 8) | (ping > threshold)) if ping >= 0 else False
+def validate_gamertag(tag: str) -> bool:
+    pattern = re.compile(r'^[a-zA-Z0-9_]{3,16}$')
+    return bool(pattern.match(tag))
 
-class PerformanceConstraint:
-    """Descriptor to enforce strict performance limits on game state variables."""
-    def __init__(self, limit: float) -> None:
-        self.limit = limit
+class ConfigValidator:
+    def __init__(self, schema: Dict[str, Callable[[Any], bool]]):
+        self.schema = schema
 
-    def __set__(self, instance: object, value: float) -> None:
-        if value > self.limit:
-            raise ValueError(f"System overhead {value} exceeds {self.limit} capacity")
-        instance.__dict__[self.name] = value
+    def check(self, data: Dict[str, Any]) -> Dict[str, bool]:
+        results = {}
+        for key, validator in self.schema.items():
+            results[key] = validator(data.get(key))
+        return results
+
+# Helper instances for common perf checks
+game_validators = ConfigValidator({
+    'fps_limit': validate_fps_range,
+    'max_ping': lambda x: isinstance(x, int) and x < 500,
+    'packet_loss_threshold': validate_packet_loss
+})
