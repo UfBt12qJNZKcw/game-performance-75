@@ -1,31 +1,44 @@
+import gc
 import time
+import psutil
 import functools
-import random
-import logging
 
-logger = logging.getLogger('game-performance-75')
+def memory_cleanup_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        gc.collect()
+        return result
+    return wrapper
 
-def retry_with_jitter(max_attempts=3, base_delay=1.0):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            attempts = 0
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    attempts += 1
-                    if attempts >= max_attempts:
-                        logger.error(f'Critical network failure after {attempts} attempts: {e}')
-                        raise
-                    
-                    # Exponential backoff with 50% random jitter
-                    delay = (base_delay * (2 ** (attempts - 1))) * (0.5 + 0.5 * random.random())
-                    logger.warning(f'Network glitch, retrying in {delay:.2f}s... (attempt {attempts})')
-                    time.sleep(delay)
-        return wrapper
-    return decorator
+def get_system_metrics():
+    proc = psutil.Process()
+    return {
+        "rss": proc.memory_info().rss / 1024 / 1024,
+        "cpu": proc.cpu_percent(interval=0.1),
+        "timestamp": time.time()
+    }
 
-def network_operation(func):
-    """Facade for specialized network retry behavior."""
-    return retry_with_jitter(max_attempts=5, base_delay=0.5)(func)
+class ResourcePool:
+    def __init__(self, limit=100):
+        self._limit = limit
+        self._cache = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.purge()
+
+    def register(self, key, obj):
+        if len(self._cache) >= self._limit:
+            self.purge()
+        self._cache[key] = obj
+
+    def purge(self):
+        keys = list(self._cache.keys())
+        for key in keys:
+            del self._cache[key]
+        gc.collect()
+
+cleanup = memory_cleanup_decorator
