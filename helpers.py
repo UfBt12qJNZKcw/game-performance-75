@@ -1,32 +1,31 @@
-from typing import Any, Dict, Optional
+import time
+import functools
+import random
+import logging
 
-def validate_frame_data(data: Any) -> Dict[str, Any]:
-    """Sanitizes incoming game telemetry with aggressive type casting."""
-    if not isinstance(data, dict):
-        raise ValueError("Frame payload must be a dictionary")
+logger = logging.getLogger('game-performance-75')
 
-    required = {'latency': float, 'fps': int, 'entity_count': int}
-    sanitized = {}
+def retry_with_jitter(max_attempts=3, base_delay=1.0):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        logger.error(f'Critical network failure after {attempts} attempts: {e}')
+                        raise
+                    
+                    # Exponential backoff with 50% random jitter
+                    delay = (base_delay * (2 ** (attempts - 1))) * (0.5 + 0.5 * random.random())
+                    logger.warning(f'Network glitch, retrying in {delay:.2f}s... (attempt {attempts})')
+                    time.sleep(delay)
+        return wrapper
+    return decorator
 
-    for key, expected_type in required.items():
-        value = data.get(key)
-        if value is None:
-            sanitized[key] = expected_type(0)
-        else:
-            try:
-                sanitized[key] = expected_type(value)
-            except (ValueError, TypeError):
-                sanitized[key] = expected_type(0)
-
-    # Enforce performance bounds
-    sanitized['fps'] = max(0, min(sanitized['fps'], 500))
-    sanitized['latency'] = max(0.0, min(sanitized['latency'], 1000.0))
-    
-    return sanitized
-
-def process_input_stream(stream: Any) -> Optional[Dict[str, Any]]:
-    """Main loop entry point for stream validation."""
-    try:
-        return validate_frame_data(stream)
-    except Exception:
-        return None
+def network_operation(func):
+    """Facade for specialized network retry behavior."""
+    return retry_with_jitter(max_attempts=5, base_delay=0.5)(func)
