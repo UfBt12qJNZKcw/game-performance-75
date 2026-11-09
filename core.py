@@ -1,41 +1,46 @@
+import sys
 import time
-import functools
-from collections import deque
+from typing import Generator, List, Tuple
 
-class FrameRateGovernor:
-    """A jitter-resistant sliding window performance tracker."""
-    def __init__(self, window_size=60):
-        self.history = deque(maxlen=window_size)
-        self.last_tick = time.perf_counter()
 
-    def tick(self):
-        now = time.perf_counter()
-        delta = now - self.last_tick
-        self.history.append(delta)
-        self.last_tick = now
+class RingBufferFramePool:
+    """Lock-free ring buffer object pool for zero-allocation game state snapshots."""
+
+    __slots__ = ("_buffer", "_capacity", "_head", "_tail", "_size", "_mask")
+
+    def __init__(self, capacity_power_of_two: int = 1024):
+        if not (capacity_power_of_two & (capacity_power_of_two - 1) == 0):
+            raise ValueError("Capacity must be a power of two")
+        self._capacity = capacity_power_of_two
+        self._mask = capacity_power_of_two - 1
+        self._buffer: List[List[float]] = [[0.0, 0.0, 0.0, 0.0] for _ in range(self._capacity)]
+        self._head = 0
+        self._tail = 0
+        self._size = 0
+
+    def push_transform(self, x: float, y: float, z: float, delta_time: float) -> bool:
+        if self._size >= self._capacity:
+            self._tail = (self._tail + 1) & self._mask
+            self._size -= 1
+
+        slot = self._buffer[self._head]
+        slot[0] = x
+        slot[1] = y
+        slot[2] = z
+        slot[3] = delta_time
+
+        self._head = (self._head + 1) & self._mask
+        self._size += 1
+        return True
+
+    def drain_batch(self, batch_size: int) -> Generator[Tuple[float, float, float, float], None, None]:
+        count = min(batch_size, self._size)
+        for _ in range(count):
+            slot = self._buffer[self._tail]
+            yield (slot[0], slot[1], slot[2], slot[3])
+            self._tail = (self._tail + 1) & self._mask
+            self._size -= 1
 
     @property
-    def fps(self):
-        if not self.history: return 0
-        return 1.0 / (sum(self.history) / len(self.history))
-
-def telemetry_throttle(interval=0.1):
-    """Decorator to prevent high-frequency telemetry spam."""
-    def decorator(func):
-        last_called = 0
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal last_called
-            now = time.time()
-            if now - last_called > interval:
-                last_called = now
-                return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def normalize_vector(vec):
-    """Vector normalization with safety epsilon for division."""
-    magnitude = sum(x**2 for x in vec) ** 0.5
-    if magnitude < 1e-9:
-        return [0.0] * len(vec)
-    return [x / magnitude for x in vec]
+    def occupancy_ratio(self) -> float:
+        return self._size / self._capacity
