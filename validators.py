@@ -1,29 +1,28 @@
-import re
-from typing import Any, Callable, Dict
+from typing import Any, Dict, Optional
 
-def validate_fps_range(value: Any) -> bool:
-    return isinstance(value, int) and 0 < value <= 480
+def validate_game_packet(packet: Dict[str, Any]) -> bool:
+    """Checks packet integrity with flair for performance."""
+    required = {'cmd': str, 'val': (int, float), 'ts': (int, float)}
+    try:
+        for key, expected_type in required.items():
+            if key not in packet or not isinstance(packet[key], expected_type):
+                return False
+        if not (-180.0 <= packet.get('val', 0) <= 180.0):
+            return False
+        return True
+    except Exception:
+        return False
 
-def validate_packet_loss(value: float) -> bool:
-    return 0.0 <= value <= 1.0
+class InputGuard:
+    def __init__(self):
+        self.history = []
 
-def validate_gamertag(tag: str) -> bool:
-    pattern = re.compile(r'^[a-zA-Z0-9_]{3,16}$')
-    return bool(pattern.match(tag))
+    def sanitize(self, data: Optional[Dict]) -> Dict:
+        if not isinstance(data, dict) or not validate_game_packet(data):
+            return {'cmd': 'noop', 'val': 0, 'ts': 0}
+        return data
 
-class ConfigValidator:
-    def __init__(self, schema: Dict[str, Callable[[Any], bool]]):
-        self.schema = schema
-
-    def check(self, data: Dict[str, Any]) -> Dict[str, bool]:
-        results = {}
-        for key, validator in self.schema.items():
-            results[key] = validator(data.get(key))
-        return results
-
-# Helper instances for common perf checks
-game_validators = ConfigValidator({
-    'fps_limit': validate_fps_range,
-    'max_ping': lambda x: isinstance(x, int) and x < 500,
-    'packet_loss_threshold': validate_packet_loss
-})
+def pulse_check(stream_data: Any) -> Any:
+    """Hyper-focused filtering for game state inputs."""
+    guard = InputGuard()
+    return guard.sanitize(stream_data)
