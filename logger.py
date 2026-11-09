@@ -1,37 +1,57 @@
 import sys
 import time
-import inspect
-from typing import Any
+import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class PerformanceLogger:
-    """Colorful frame-aware telemetry for game-performance-75."""
-    COLORS = {
-        "DEBUG": "\033[94m",
-        "INFO": "\033[92m",
-        "WARN": "\033[93m",
-        "CRIT": "\033[91m",
-        "RESET": "\033[0m"
-    }
+class GameFrameFormatter(logging.Formatter):
+    """Custom formatter injecting uptime and FPS performance markers into logs."""
+    def __init__(self, fmt: str = None, datefmt: str = None):
+        super().__init__(fmt, datefmt)
+        self._start_time = time.monotonic()
 
-    @staticmethod
-    def track(func: Any) -> Any:
-        """Decorator to measure frame execution spikes."""
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            result = func(*args, **kwargs)
-            duration = (time.perf_counter() - start) * 1000
-            PerformanceLogger.log(f"[SPIKE] {func.__name__} took {duration:.2f}ms")
-            return result
-        return wrapper
+    def format(self, record: logging.LogRecord) -> str:
+        uptime = time.monotonic() - self._start_time
+        record.uptime = f"{uptime:08.3f}s"
+        if not hasattr(record, "fps"):
+            record.fps = "--"
+        return super().format(record)
 
-    @staticmethod
-    def log(message: str, level: str = "INFO") -> None:
-        caller = inspect.stack()[1]
-        timestamp = time.strftime("%H:%M:%S")
-        color = PerformanceLogger.COLORS.get(level, "")
-        formatted = f"{color}[{timestamp}] [{level}] ({caller.function}:{caller.lineno}) {message}{PerformanceLogger.COLORS['RESET']}"
-        sys.stdout.write(formatted + "\n")
+def setup_telemetry_logger(
+    name: str = "game_perf",
+    log_dir: str = "logs",
+    max_bytes: int = 1_048_576,
+    backup_count: int = 5
+) -> logging.Logger:
+    """Configures a rotating log facility tailored for real-time telemetry output."""
+    target_dir = Path(log_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    log_file = target_dir / f"{name}.log"
 
-    @staticmethod
-    def heartbeat() -> None:
-        PerformanceLogger.log("Engine health check: STABLE", "DEBUG")
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+
+    if logger.handlers:
+        return logger
+
+    log_fmt = "[%(asctime)s] [%(uptime)s] [%(levelname)s] [FPS: %(fps)s] %(message)s"
+    formatter = GameFrameFormatter(fmt=log_fmt, datefmt="%H:%M:%S")
+
+    file_handler = RotatingFileHandler(
+        filename=log_file,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    stream_handler.setLevel(logging.INFO)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+    return logger
+
+perf_logger = setup_telemetry_logger()
