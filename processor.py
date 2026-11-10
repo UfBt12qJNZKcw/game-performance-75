@@ -1,77 +1,59 @@
-import math
 from collections import deque
-from dataclasses import dataclass
-from typing import Callable, Dict, List, Any
+from functools import reduce
+import heapq
+from typing import Callable, Dict, List, Tuple
 
 
-@dataclass
-class FrameMetric:
-    timestamp: float
-    frame_time_ms: float
-    gpu_usage: float
-    cpu_usage: float
+class FrameMetricsProcessor:
+    """Dynamic pipeline processor for gaming frame time analysis."""
 
+    def __init__(self, target_fps: int = 60, window_size: int = 120):
+        self.target_delta = 1000.0 / target_fps
+        self.history: deque[float] = deque(maxlen=window_size)
+        self._transformers: List[Callable[[float], float]] = []
 
-class DynamicFrameProcessor:
-    def __init__(self, buffer_capacity: int = 120) -> None:
-        self._capacity = buffer_capacity
-        self._metrics: deque[FrameMetric] = deque(maxlen=buffer_capacity)
-        self._subscribers: List[Callable[[Dict[str, Any]], None]] = []
-        self._pipeline: List[Callable[[FrameMetric], Dict[str, Any]]] = []
-        self._reorganize_pipeline()
+    def pipe(self, transformer: Callable[[float], float]) -> "FrameMetricsProcessor":
+        """Chain transform functions dynamically into frame processing."""
+        self._transformers.append(transformer)
+        return self
 
-    def _reorganize_pipeline(self) -> None:
-        self._pipeline = [
-            getattr(self, method_name)
-            for method_name in sorted(dir(self))
-            if method_name.startswith("_stage_") and callable(getattr(self, method_name))
-        ]
+    def ingest(self, frame_time_ms: float) -> float:
+        """Process frame time through chained transformations and log history."""
+        processed = reduce(lambda val, fn: fn(val), self._transformers, frame_time_ms)
+        self.history.append(processed)
+        return processed
 
-    def add_frame(self, timestamp: float, duration_ms: float, gpu: float, cpu: float) -> None:
-        metric = FrameMetric(timestamp, duration_ms, gpu, cpu)
-        self._metrics.append(metric)
-        self._execute_pipeline(metric)
-
-    def subscribe(self, callback: Callable[[Dict[str, Any]], None]) -> None:
-        self._subscribers.append(callback)
-
-    def _stage_01_stutter_detector(self, metric: FrameMetric) -> Dict[str, Any]:
-        if len(self._metrics) < 5:
-            return {"stutter": False, "severity": 0.0}
-        recent = list(self._metrics)[-6:-1]
-        avg_recent = sum(m.frame_time_ms for m in recent) / len(recent)
-        is_spike = metric.frame_time_ms > (avg_recent * 1.75)
-        severity = max(0.0, (metric.frame_time_ms - avg_recent) / avg_recent) if is_spike else 0.0
-        return {"stutter": is_spike, "severity": round(severity, 2)}
-
-    def _stage_02_percentile_calculator(self, metric: FrameMetric) -> Dict[str, Any]:
-        if len(self._metrics) < 10:
-            return {"p99_ms": metric.frame_time_ms, "p99_9_ms": metric.frame_time_ms}
-        sorted_times = sorted(m.frame_time_ms for m in self._metrics)
-        idx_99 = math.floor(len(sorted_times) * 0.99)
-        idx_99_9 = math.floor(len(sorted_times) * 0.999)
+    def calculate_percentiles(self, percentiles: Tuple[float, ...] = (95.0, 99.0)) -> Dict[str, float]:
+        """Compute p95/p99 frame times using heap sort technique."""
+        if not self.history:
+            return {f"p{int(p)}": 0.0 for p in percentiles}
+        sorted_samples = heapq.nsmallest(len(self.history), self.history)
+        n = len(sorted_samples)
         return {
-            "p99_ms": round(sorted_times[idx_99], 2),
-            "p99_9_ms": round(sorted_times[idx_99_9], 2),
+            f"p{int(p)}": sorted_samples[min(int((p / 100.0) * n), n - 1)]
+            for p in percentiles
         }
 
-    def _execute_pipeline(self, current: FrameMetric) -> None:
-        payload: Dict[str, Any] = {
-            "timestamp": current.timestamp,
-            "frametime": current.frame_time_ms,
-        }
-        for stage in self._pipeline:
-            payload.update(stage(current))
-        for sub in self._subscribers:
-            sub(payload)
+    def stutter_ratio(self) -> float:
+        """Calculate ratio of frames exceeding 1.5x target frame time."""
+        if not self.history:
+            return 0.0
+        stutters = sum(1 for dt in self.history if dt > self.target_delta * 1.5)
+        return round(stutters / len(self.history), 4)
 
-    def get_summary(self) -> Dict[str, Any]:
-        if not self._metrics:
-            return {}
-        times = [m.frame_time_ms for m in self._metrics]
-        return {
-            "samples": len(times),
-            "avg_fps": round(1000.0 / (sum(times) / len(times)), 1),
-            "max_frame_ms": max(times),
-            "min_frame_ms": min(times),
-        }
+
+def clamp_frame_delta(max_delta_ms: float = 100.0) -> Callable[[float], float]:
+    """Helper closure preventing runaway delta spikes during lag spikes."""
+    return lambda dt: min(max(dt, 0.1), max_delta_ms)
+
+
+def ewma_smoothing(alpha: float = 0.2) -> Callable[[float], float]:
+    """Stateful closure maintaining exponential weighted moving average."""
+    state: Dict[str, float | None] = {"avg": None}
+
+    def _smooth(dt: float) -> float:
+        current = state["avg"]
+        state["avg"] = dt if current is None else (alpha * dt + (1 - alpha) * current)
+        return state["avg"]
+
+    return _smooth
