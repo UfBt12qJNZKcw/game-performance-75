@@ -1,34 +1,36 @@
-from typing import Dict, Any, Final
-from dataclasses import dataclass
+import json
+import os
+from typing import Any, Dict
 
-@dataclass(frozen=True)
-class EngineConfig:
-    """Immutable container for high-performance rendering parameters."""
-    target_fps: int
-    resolution: tuple[int, int]
-    anti_aliasing: bool
+class ConfigLoader:
+    def __init__(self, path: str = 'settings.json', defaults: Dict[str, Any] = None):
+        self.path = path
+        self.defaults = defaults or {}
+        self.data = self._load()
 
-def get_default_settings() -> EngineConfig:
-    """Initializes engine defaults with low-latency bias."""
-    return EngineConfig(
-        target_fps=144,
-        resolution=(1920, 1080),
-        anti_aliasing=False
-    )
+    def _load(self) -> Dict[str, Any]:
+        if not os.path.exists(self.path):
+            return self.defaults.copy()
+        try:
+            with open(self.path, 'r') as f:
+                loaded = json.load(f)
+                return {**self.defaults, **loaded}
+        except (json.JSONDecodeError, IOError):
+            return self.defaults.copy()
 
-class PerformanceRegistry:
-    """Registry for volatile performance metrics mapping."""
-    _registry: Dict[str, Any] = {"vsync": False, "gpu_throttle": 0.95}
+    def get(self, key: str, fallback: Any = None) -> Any:
+        return self.data.get(key, fallback)
 
-    @classmethod
-    def update_metric(cls, key: str, value: Any) -> None:
-        """Dynamically updates internal engine performance bounds."""
-        cls._registry[key] = value
+    def __getattr__(self, item: str) -> Any:
+        if item in self.data:
+            return self.data[item]
+        raise AttributeError(f"config key '{item}' not found")
 
-    @classmethod
-    def fetch_metrics(cls) -> Dict[str, Any]:
-        """Retrieves current performance baseline as dictionary."""
-        return cls._registry
-
-FRAME_LIMIT: Final[int] = 240
-VERSION: Final[str] = "0.7.5-stable"
+def load_game_config():
+    default_profile = {
+        'fps_cap': 144,
+        'vsync': True,
+        'render_scale': 1.0,
+        'shader_cache': True
+    }
+    return ConfigLoader('game.cfg', default_profile)
