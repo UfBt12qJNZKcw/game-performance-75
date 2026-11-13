@@ -1,35 +1,32 @@
-import logging
-from logging.handlers import RotatingFileHandler
-import os
+import time
+import functools
+from typing import Callable, Any
 
-def setup_logger(name: str, log_file: str = 'game_perf.log') -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
-    
-    formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
-        datefmt='%H:%M:%S'
-    )
+class PerformanceProfiler:
+    def __init__(self):
+        self.stats = {}
 
-    # Unusual approach: dynamically inject log directory if missing
-    log_dir = 'logs'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    def __call__(self, func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            duration = time.perf_counter() - start
+            self.stats[func.__name__] = self.stats.get(func.__name__, []) + [duration]
+            if duration > 0.016:
+                print(f'[WARN] {func.__name__} dropped frames: {duration:.4f}s')
+            return result
+        return wrapper
 
-    file_path = os.path.join(log_dir, log_file)
+    def report(self) -> None:
+        for name, times in self.stats.items():
+            avg = sum(times) / len(times)
+            print(f'Function: {name} | Average latency: {avg:.6f}s')
 
-    # Rotation at 2MB with 3 backup files for performance consistency
-    handler = RotatingFileHandler(
-        file_path, 
-        maxBytes=2*1024*1024, 
-        backupCount=3
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+frame_logger = PerformanceProfiler()
 
-    # Stream output for console debugging during development
-    console = logging.StreamHandler()
-    console.setFormatter(formatter)
-    logger.addHandler(console)
+def log_performance(func: Callable) -> Callable:
+    return frame_logger(func)
 
-    return logger
+def get_telemetry_report() -> None:
+    frame_logger.report()
