@@ -1,36 +1,28 @@
-import json
-import os
-from typing import Any, Dict
+from typing import Dict, Any, Final
+from dataclasses import dataclass
 
-class ConfigLoader:
-    def __init__(self, path: str = 'settings.json', defaults: Dict[str, Any] = None):
-        self.path = path
-        self.defaults = defaults or {}
-        self.data = self._load()
+@dataclass(frozen=True)
+class GameConfig:
+    """Immutable storage for global performance parameters."""
+    target_fps: int
+    resolution: tuple[int, int]
+    is_debug: bool
 
-    def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.path):
-            return self.defaults.copy()
-        try:
-            with open(self.path, 'r') as f:
-                loaded = json.load(f)
-                return {**self.defaults, **loaded}
-        except (json.JSONDecodeError, IOError):
-            return self.defaults.copy()
-
-    def get(self, key: str, fallback: Any = None) -> Any:
-        return self.data.get(key, fallback)
-
-    def __getattr__(self, item: str) -> Any:
-        if item in self.data:
-            return self.data[item]
-        raise AttributeError(f"config key '{item}' not found")
-
-def load_game_config():
-    default_profile = {
-        'fps_cap': 144,
-        'vsync': True,
-        'render_scale': 1.0,
-        'shader_cache': True
+def get_performance_profiles() -> Dict[str, GameConfig]:
+    """Generates optimized presets for various hardware tiers."""
+    return {
+        "ultra": GameConfig(144, (3840, 2160), False),
+        "competitive": GameConfig(240, (1920, 1080), True),
+        "potato": GameConfig(60, (1280, 720), False)
     }
-    return ConfigLoader('game.cfg', default_profile)
+
+def validate_setting(key: str, value: Any) -> bool:
+    """Sanity check for configuration values."""
+    bounds: Dict[str, tuple[int, int]] = {"fov": (60, 120), "volume": (0, 100)}
+    if key in bounds:
+        low, high = bounds[key]
+        return low <= value <= high
+    return True
+
+GLOBAL_TIMEOUT: Final[float] = 0.016
+"""Target frame time in seconds for 60fps locking."""
