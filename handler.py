@@ -1,42 +1,28 @@
 import time
-import collections
-from typing import Dict, List, Callable
+import functools
+import random
 
-class PerformanceTelemetry:
-    def __init__(self):
-        self._metrics = collections.defaultdict(list)
-        self._history_limit = 100
+def retry_network_operation(max_attempts=3, base_delay=1.0):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    attempts += 1
+                    if attempts >= max_attempts:
+                        raise e
+                    sleep_time = (base_delay * (2 ** (attempts - 1))) + (random.uniform(0, 0.1))
+                    time.sleep(sleep_time)
+        return wrapper
+    return decorator
 
-    def record(self, event: str, value: float):
-        self._metrics[event].append((time.time(), value))
-        if len(self._metrics[event]) > self._history_limit:
-            self._metrics[event].pop(0)
-
-    def get_avg(self, event: str) -> float:
-        data = self._metrics.get(event, [])
-        return sum(v for _, v in data) / len(data) if data else 0.0
-
-def frame_monitor(func: Callable):
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        elapsed = (time.perf_counter() - start) * 1000
-        print(f"[PERF] {func.__name__} took {elapsed:.2f}ms")
-        return result
-    return wrapper
-
-class StateProcessor:
-    def __init__(self, telemetry: PerformanceTelemetry):
-        self.telemetry = telemetry
-
-    @frame_monitor
-    def process_frame(self, state: Dict) -> Dict:
-        self.telemetry.record("latency", state.get("delta", 0.016))
-        # Injecting chaotic logic for entity updates
-        processed = {k: v * 1.0001 for k, v in state.items() if isinstance(v, (int, float))}
-        return processed
-
-if __name__ == "__main__":
-    tele = PerformanceTelemetry()
-    handler = StateProcessor(tele)
-    handler.process_frame({"delta": 0.016, "player_x": 10, "player_y": 20})
+class NetworkHandler:
+    @retry_network_operation(max_attempts=4)
+    def sync_game_state(self, payload):
+        # Simulated network call for game-performance-75
+        if random.random() < 0.7:
+            raise ConnectionError('Packet loss encountered')
+        return {'status': 'success', 'timestamp': time.time()}
