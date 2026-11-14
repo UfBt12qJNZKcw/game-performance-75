@@ -1,36 +1,44 @@
-from typing import Final, Dict, Any
-from dataclasses import dataclass
+from typing import Final, Dict, Tuple
 
-@dataclass(frozen=True)
-class PerformanceThresholds:
-    FPS_MIN: int = 60
-    LATENCY_MAX_MS: int = 50
-    FRAME_TIME_MAX_MS: float = 16.6
+# Configuration constants for game-performance-75 engine
 
-class GameConstants:
-    VERSION: Final[str] = "0.7.5-stable"
-    TICK_RATE_HZ: Final[int] = 128
-    ENGINE_PRESETS: Final[Dict[str, Any]] = {
-        "ULTRA": {"shadows": True, "anti_aliasing": 8, "v_sync": False},
-        "COMPETITIVE": {"shadows": False, "anti_aliasing": 0, "v_sync": False},
-        "POWER_SAVER": {"shadows": False, "anti_aliasing": 0, "v_sync": True}
+MAX_FRAME_BUFFER: Final[int] = 144
+MIN_LATENCY_THRESHOLD_MS: Final[float] = 16.67
+DEFAULT_ASSET_PATH: Final[str] = "./assets/v1/"
+
+ENGINE_MODES: Final[Dict[str, int]] = {
+    "PERFORMANCE": 0,
+    "BALANCED": 1,
+    "QUALITY": 2
+}
+
+RESOLUTION_PRESETS: Final[Tuple[Tuple[int, int], ...]] = (
+    (1280, 720),
+    (1920, 1080),
+    (2560, 1440),
+    (3840, 2160)
+)
+
+def get_render_scale(quality_mode: str) -> float:
+    """
+    Calculate render scale multiplier based on quality profile.
+
+    Args:
+        quality_mode: The engine mode key string.
+
+    Returns:
+        float: Scaling factor for resolution buffers.
+    """
+    scales: Dict[str, float] = {
+        "PERFORMANCE": 0.75,
+        "BALANCED": 1.0,
+        "QUALITY": 1.5
     }
+    return scales.get(quality_mode, 1.0)
 
-def get_preset_config(quality_mode: str) -> Dict[str, Any]:
-    """Fetches engine configuration based on performance tier."""
-    return GameConstants.ENGINE_PRESETS.get(
-        quality_mode.upper(), 
-        GameConstants.ENGINE_PRESETS["COMPETITIVE"]
-    )
+# Bitmask constants for engine features
+FEATURE_RAY_TRACING: Final[int] = 1 << 0
+FEATURE_DLSS: Final[int] = 1 << 1
+FEATURE_V_SYNC: Final[int] = 1 << 2
 
-def validate_telemetry(metric_key: str, value: float) -> bool:
-    """Checks if metric stays within performance bounds."""
-    limits = PerformanceThresholds()
-    mapping = {
-        "fps": lambda v: v >= limits.FPS_MIN,
-        "latency": lambda v: v <= limits.LATENCY_MAX_MS,
-        "frame_time": lambda v: v <= limits.FRAME_TIME_MAX_MS
-    }
-    
-    validator = mapping.get(metric_key, lambda _: True)
-    return validator(value)
+ENABLED_FEATURES: Final[int] = FEATURE_DLSS | FEATURE_V_SYNC
