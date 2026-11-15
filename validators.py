@@ -1,32 +1,34 @@
-from typing import Union, Callable, Any
+import functools
 
-def validate_frame_rate(fps: int) -> bool:
-    """Ensures frame rates stay within cinematic or competitive bounds."""
-    return 30 <= fps <= 360
+class InputValidationError(Exception):
+    pass
 
-def validate_latency(ms: float) -> bool:
-    """Checks if network latency is suitable for competitive gaming."""
-    return 0.0 <= ms < 150.0
+def validate_frame_data(func):
+    @functools.wraps(func)
+    def wrapper(frame_data, *args, **kwargs):
+        if not isinstance(frame_data, dict):
+            raise InputValidationError(f'invalid payload type: {type(frame_data)}')
+        
+        required = {'timestamp', 'fps', 'frame_id'}
+        if not required.issubset(frame_data.keys()):
+            missing = required - frame_data.keys()
+            raise InputValidationError(f'missing metrics: {missing}')
+            
+        if frame_data.get('fps', 0) < 0:
+            raise InputValidationError('fps telemetry out of bounds')
+            
+        return func(frame_data, *args, **kwargs)
+    return wrapper
 
-class ConfigValidator:
-    """Quirky validator wrapper for game setting configurations."""
-    def __init__(self, validator_func: Callable[[Any], bool]) -> None:
-        self.func = validator_func
+@validate_frame_data
+def process_frame(frame_data):
+    # The magic happens here, optimized for 144Hz loops
+    print(f'Processing frame {frame_data["frame_id"]} at {frame_data["fps"]} FPS')
+    return True
 
-    def __call__(self, value: Any) -> Any:
-        if not self.func(value):
-            raise ValueError(f"Input {value} failed performance criteria")
-        return value
-
-def validate_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    """Batch process settings using functional validation wrappers."""
-    validations = {
-        "fps": ConfigValidator(validate_frame_rate),
-        "ping": ConfigValidator(validate_latency)
-    }
-    
-    for key, value in settings.items():
-        if key in validations:
-            validations[key](value)
-    
-    return settings
+if __name__ == '__main__':
+    try:
+        test_payload = {'timestamp': 1625097600, 'fps': 144, 'frame_id': 1}
+        process_frame(test_payload)
+    except InputValidationError as e:
+        print(f'Performance pipeline interrupted: {e}')
