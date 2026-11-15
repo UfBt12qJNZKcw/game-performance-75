@@ -1,44 +1,39 @@
-import gc
 import time
-import psutil
 import functools
+from typing import Callable, Any
 
-def memory_cleanup_decorator(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        gc.collect()
-        return result
-    return wrapper
+def throttle(interval: float):
+    """Limits execution frequency for resource-heavy operations."""
+    def decorator(func: Callable):
+        last_called = 0.0
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            nonlocal last_called
+            elapsed = time.perf_counter() - last_called
+            if elapsed >= interval:
+                last_called = time.perf_counter()
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
-def get_system_metrics():
-    proc = psutil.Process()
-    return {
-        "rss": proc.memory_info().rss / 1024 / 1024,
-        "cpu": proc.cpu_percent(interval=0.1),
-        "timestamp": time.time()
-    }
+def bitmask_check(val: int, mask: int) -> bool:
+    """Checks if bits are set for state comparisons."""
+    return (val & mask) == mask
 
-class ResourcePool:
-    def __init__(self, limit=100):
-        self._limit = limit
-        self._cache = {}
-
+class FrameProfiler:
+    """Context manager for tracking frame latency."""
+    def __init__(self, label: str):
+        self.label = label
+    
     def __enter__(self):
+        self.start = time.perf_counter()
         return self
-
+    
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.purge()
+        delta = (time.perf_counter() - self.start) * 1000
+        if delta > 16.67:
+            print(f"Warning: {self.label} dropped frame: {delta:.2f}ms")
 
-    def register(self, key, obj):
-        if len(self._cache) >= self._limit:
-            self.purge()
-        self._cache[key] = obj
-
-    def purge(self):
-        keys = list(self._cache.keys())
-        for key in keys:
-            del self._cache[key]
-        gc.collect()
-
-cleanup = memory_cleanup_decorator
+def pack_coords(x: int, y: int) -> int:
+    """Bit-packs two 16-bit integers into one 32-bit."""
+    return (x << 16) | (y & 0xFFFF)
