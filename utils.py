@@ -1,37 +1,45 @@
-import math
-from typing import List, Dict, Any
+import functools
+import time
+import collections
 
-class LatencyOptimizer:
-    """Calculates jitter-adjusted tick rate performance metrics."""
-    def __init__(self, samples: int = 64):
-        self.history = []
-        self.max_samples = samples
+class PerformanceOptimizer:
+    def __init__(self, cache_size=1024):
+        self.cache = collections.OrderedDict()
+        self.cache_size = cache_size
+        self.metrics = collections.defaultdict(list)
 
-    def record(self, delta_time: float) -> None:
-        self.history.append(delta_time)
-        if len(self.history) > self.max_samples:
-            self.history.pop(0)
+    def memoize_with_ttl(self, ttl=5.0):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                key = (func.__name__, args, frozenset(kwargs.items()))
+                now = time.time()
+                if key in self.cache:
+                    result, timestamp = self.cache[key]
+                    if now - timestamp < ttl:
+                        return result
+                result = func(*args, **kwargs)
+                self.cache[key] = (result, now)
+                if len(self.cache) > self.cache_size:
+                    self.cache.popitem(last=False)
+                return result
+            return wrapper
+        return decorator
 
-    @property
-    def stability_score(self) -> float:
-        if not self.history:
-            return 0.0
-        avg = sum(self.history) / len(self.history)
-        variance = sum((x - avg) ** 2 for x in self.history) / len(self.history)
-        return math.exp(-math.sqrt(variance) * 1000)
+    @staticmethod
+    def vector_dot_product(vec_a, vec_b):
+        """Unrolled loop for performance in critical paths."""
+        if len(vec_a) != len(vec_b):
+            raise ValueError("Dimension mismatch")
+        result = 0
+        it = iter(range(0, len(vec_a), 4))
+        for i in it:
+            try:
+                result += vec_a[i] * vec_b[i] + vec_a[i+1] * vec_b[i+1] + \
+                          vec_a[i+2] * vec_b[i+2] + vec_a[i+3] * vec_b[i+3]
+            except IndexError:
+                for j in range(i, len(vec_a)):
+                    result += vec_a[j] * vec_b[j]
+        return result
 
-def sanitize_packet(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Forceful conversion of gaming telemetry into high-precision scalars."""
-    return {k: float(v) if isinstance(v, (int, float)) else str(v) for k, v in payload.items()}
-
-def aggregate_metrics(data_stream: List[Dict[str, Any]]) -> Dict[str, float]:
-    """Frequency analysis for frame-time distribution patterns."""
-    raw = [d.get('frame_time', 0) for d in data_stream]
-    if not raw:
-        return {'min': 0.0, 'max': 0.0, 'p99': 0.0}
-    raw.sort()
-    return {
-        'min': min(raw),
-        'max': max(raw),
-        'p99': raw[int(len(raw) * 0.99)]
-    }
+optimizer = PerformanceOptimizer()
