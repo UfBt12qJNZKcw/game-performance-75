@@ -1,44 +1,46 @@
+import gc
 import time
-from dataclasses import dataclass
-from typing import Callable, List
-
-@dataclass
-class FrameMetric:
-    name: str
-    duration: float
+import psutil
+from typing import Callable, Any
 
 class PerformanceEngine:
-    def __init__(self):
-        self._registry: List[Callable] = []
-        self._history: List[FrameMetric] = []
+    def __init__(self, threshold: float = 85.0):
+        self.threshold = threshold
+        self._monitor_registry = []
 
     def register_hook(self, func: Callable):
-        self._registry.append(func)
-        return func
+        self._monitor_registry.append(func)
 
-    def execute_frame(self, frame_id: int):
-        start_time = time.perf_counter()
-        for hook in self._registry:
-            hook(frame_id)
-        elapsed = (time.perf_counter() - start_time) * 1000
-        self._history.append(FrameMetric(f"frame_{frame_id}", elapsed))
-        if len(self._history) > 100:
-            self._history.pop(0)
+    def execute_maintenance(self):
+        """Aggressive memory reclamation for frame stability."""
+        mem_usage = psutil.virtual_memory().percent
+        if mem_usage > self.threshold:
+            for hook in self._monitor_registry:
+                try:
+                    hook()
+                except Exception:
+                    continue
+            gc.collect()
+            return True
+        return False
 
-    @property
-    def average_latency(self) -> float:
-        if not self._history: return 0.0
-        return sum(m.duration for m in self._history) / len(self._history)
+class FrameBudget:
+    def __init__(self, target_ms: float = 16.67):
+        self.target = target_ms
+        self.start_time = 0.0
 
-def initialize_engine():
-    engine = PerformanceEngine()
-    @engine.register_hook
-    def sync_tick(fid: int):
-        pass
-    return engine
+    def __enter__(self):
+        self.start_time = time.perf_counter()
 
-if __name__ == '__main__':
-    eng = initialize_engine()
-    for i in range(10):
-        eng.execute_frame(i)
-    print(f"avg: {eng.average_latency:.4f}ms")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        elapsed = (time.perf_counter() - self.start_time) * 1000
+        if elapsed > self.target:
+            print(f"[PERF] Frame overrun: {elapsed:.2f}ms")
+
+def patch_resource_cache(cache: dict):
+    """Flush memory by force-clearing large object buffers."""
+    def _clear():
+        keys = list(cache.keys())
+        for key in keys[-len(keys)//2:]:
+            del cache[key]
+    return _clear
