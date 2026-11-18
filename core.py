@@ -1,46 +1,44 @@
 import gc
 import time
-import psutil
-from typing import Callable, Any
+import logging
+from typing import Any, Dict
 
-class PerformanceEngine:
-    def __init__(self, threshold: float = 85.0):
+class PerformanceManager:
+    """Resource orchestrator for game-performance-75 engine."""
+    def __init__(self, threshold: float = 0.85):
         self.threshold = threshold
-        self._monitor_registry = []
+        self.registry: Dict[str, Any] = {}
+        self.logger = logging.getLogger('engine.core')
 
-    def register_hook(self, func: Callable):
-        self._monitor_registry.append(func)
+    def register_asset(self, key: str, asset: Any) -> None:
+        self.registry[key] = asset
 
-    def execute_maintenance(self):
-        """Aggressive memory reclamation for frame stability."""
-        mem_usage = psutil.virtual_memory().percent
-        if mem_usage > self.threshold:
-            for hook in self._monitor_registry:
-                try:
-                    hook()
-                except Exception:
-                    continue
-            gc.collect()
-            return True
-        return False
+    def purge_stale_assets(self) -> int:
+        initial_count = len(self.registry)
+        keys_to_drop = [k for k, v in self.registry.items() if getattr(v, 'expired', False)]
+        for k in keys_to_drop:
+            del self.registry[k]
+        return initial_count - len(self.registry)
 
-class FrameBudget:
-    def __init__(self, target_ms: float = 16.67):
-        self.target = target_ms
-        self.start_time = 0.0
+    def optimize_memory(self) -> None:
+        gc.collect()
+        self.logger.info("memory footprint reduction complete")
 
-    def __enter__(self):
-        self.start_time = time.perf_counter()
+    def run_maintenance_cycle(self) -> None:
+        freed = self.purge_stale_assets()
+        if freed > 0:
+            self.optimize_memory()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed = (time.perf_counter() - self.start_time) * 1000
-        if elapsed > self.target:
-            print(f"[PERF] Frame overrun: {elapsed:.2f}ms")
+class EngineHeartbeat:
+    def __init__(self, interval: float = 1.0):
+        self.interval = interval
+        self.active = True
 
-def patch_resource_cache(cache: dict):
-    """Flush memory by force-clearing large object buffers."""
-    def _clear():
-        keys = list(cache.keys())
-        for key in keys[-len(keys)//2:]:
-            del cache[key]
-    return _clear
+    def monitor(self, manager: PerformanceManager) -> None:
+        while self.active:
+            manager.run_maintenance_cycle()
+            time.sleep(self.interval)
+
+if __name__ == "__main__":
+    mgr = PerformanceManager()
+    print(f"engine initialized with {len(mgr.registry)} assets")
