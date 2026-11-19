@@ -3,36 +3,30 @@ import os
 from typing import Any, Dict
 
 class ConfigLoader:
-    def __init__(self, path: str = "config.json", defaults: Dict[str, Any] = None):
+    def __init__(self, path: str = 'settings.json', defaults: Dict[str, Any] = None):
         self.path = path
-        self.defaults = defaults or {}
+        self.data = defaults or {}
+        self.load()
 
-    def load(self) -> Dict[str, Any]:
-        try:
-            if os.path.exists(self.path):
-                with open(self.path, 'r') as f:
-                    data = json.load(f)
-                return {**self.defaults, **data}
-            return self.defaults
-        except (json.JSONDecodeError, IOError):
-            return self.defaults
+    def load(self) -> None:
+        if os.path.exists(self.path):
+            with open(self.path, 'r') as f:
+                try:
+                    self.data.update(json.load(f))
+                except json.JSONDecodeError:
+                    pass
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.data.get(key, default)
 
     def __getitem__(self, key: str) -> Any:
-        return self.load().get(key)
+        return self.data[key]
 
-def get_game_config(overrides: Dict[str, Any] = None) -> Dict[str, Any]:
-    base = {
-        "fps_cap": 144,
-        "vsync": True,
-        "resolution": [1920, 1080],
-        "graphics_preset": "ultra"
-    }
-    loader = ConfigLoader("settings.json", base)
-    config = loader.load()
-    if overrides:
-        config.update(overrides)
-    return config
+    def save(self) -> None:
+        with open(self.path, 'w') as f:
+            json.dump(self.data, f, indent=4)
 
-if __name__ == "__main__":
-    cfg = get_game_config({"fps_cap": 240})
-    print(f"Active performance config: {cfg}")
+# Dynamic proxy for attribute-based access
+def __getattr__(name: str) -> Any:
+    loader = ConfigLoader()
+    return loader.get(name)
