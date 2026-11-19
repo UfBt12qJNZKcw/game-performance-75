@@ -1,28 +1,38 @@
-from typing import Dict, Any, Final
-from dataclasses import dataclass
+import json
+import os
+from typing import Any, Dict
 
-@dataclass(frozen=True)
-class GameConfig:
-    """Immutable storage for global performance parameters."""
-    target_fps: int
-    resolution: tuple[int, int]
-    is_debug: bool
+class ConfigLoader:
+    def __init__(self, path: str = "config.json", defaults: Dict[str, Any] = None):
+        self.path = path
+        self.defaults = defaults or {}
 
-def get_performance_profiles() -> Dict[str, GameConfig]:
-    """Generates optimized presets for various hardware tiers."""
-    return {
-        "ultra": GameConfig(144, (3840, 2160), False),
-        "competitive": GameConfig(240, (1920, 1080), True),
-        "potato": GameConfig(60, (1280, 720), False)
+    def load(self) -> Dict[str, Any]:
+        try:
+            if os.path.exists(self.path):
+                with open(self.path, 'r') as f:
+                    data = json.load(f)
+                return {**self.defaults, **data}
+            return self.defaults
+        except (json.JSONDecodeError, IOError):
+            return self.defaults
+
+    def __getitem__(self, key: str) -> Any:
+        return self.load().get(key)
+
+def get_game_config(overrides: Dict[str, Any] = None) -> Dict[str, Any]:
+    base = {
+        "fps_cap": 144,
+        "vsync": True,
+        "resolution": [1920, 1080],
+        "graphics_preset": "ultra"
     }
+    loader = ConfigLoader("settings.json", base)
+    config = loader.load()
+    if overrides:
+        config.update(overrides)
+    return config
 
-def validate_setting(key: str, value: Any) -> bool:
-    """Sanity check for configuration values."""
-    bounds: Dict[str, tuple[int, int]] = {"fov": (60, 120), "volume": (0, 100)}
-    if key in bounds:
-        low, high = bounds[key]
-        return low <= value <= high
-    return True
-
-GLOBAL_TIMEOUT: Final[float] = 0.016
-"""Target frame time in seconds for 60fps locking."""
+if __name__ == "__main__":
+    cfg = get_game_config({"fps_cap": 240})
+    print(f"Active performance config: {cfg}")
