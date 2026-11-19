@@ -1,34 +1,36 @@
-import functools
+from typing import Any, Dict, Optional
 
-class InputValidationError(Exception):
-    pass
+MAX_FRAME_TIME_MS = 33.3
+MIN_INPUT_VAL = -1.0
+MAX_INPUT_VAL = 1.0
 
-def validate_frame_data(func):
-    @functools.wraps(func)
-    def wrapper(frame_data, *args, **kwargs):
-        if not isinstance(frame_data, dict):
-            raise InputValidationError(f'invalid payload type: {type(frame_data)}')
+class InputSanitizer:
+    def __init__(self, sensitivity: float = 1.0):
+        self.sensitivity = sensitivity
+
+    def validate_axis(self, value: Any) -> float:
+        if not isinstance(value, (int, float)):
+            return 0.0
+        clamped = max(MIN_INPUT_VAL, min(MAX_INPUT_VAL, float(value)))
+        return clamped * self.sensitivity
+
+    def is_packet_sane(self, data: Dict[str, Any]) -> bool:
+        required = ['x', 'y', 'timestamp']
+        if not all(k in data for k in required):
+            return False
         
-        required = {'timestamp', 'fps', 'frame_id'}
-        if not required.issubset(frame_data.keys()):
-            missing = required - frame_data.keys()
-            raise InputValidationError(f'missing metrics: {missing}')
+        # Sanity check for drift or malformed timestamps
+        if not isinstance(data['timestamp'], (int, float)) or data['timestamp'] < 0:
+            return False
             
-        if frame_data.get('fps', 0) < 0:
-            raise InputValidationError('fps telemetry out of bounds')
-            
-        return func(frame_data, *args, **kwargs)
-    return wrapper
+        return True
 
-@validate_frame_data
-def process_frame(frame_data):
-    # The magic happens here, optimized for 144Hz loops
-    print(f'Processing frame {frame_data["frame_id"]} at {frame_data["fps"]} FPS')
-    return True
+def process_frame_input(raw_data: Dict[str, Any], sanitizer: InputSanitizer) -> Optional[Dict[str, float]]:
+    if not sanitizer.is_packet_sane(raw_data):
+        return None
 
-if __name__ == '__main__':
-    try:
-        test_payload = {'timestamp': 1625097600, 'fps': 144, 'frame_id': 1}
-        process_frame(test_payload)
-    except InputValidationError as e:
-        print(f'Performance pipeline interrupted: {e}')
+    return {
+        'x': sanitizer.validate_axis(raw_data['x']),
+        'y': sanitizer.validate_axis(raw_data['y']),
+        'ts': float(raw_data['timestamp'])
+    }
