@@ -2,39 +2,39 @@ import time
 import functools
 from typing import Callable, Any
 
-def throttle(interval: float):
+def frame_throttle(ms: int = 16):
     def decorator(func: Callable):
         last_called = [0.0]
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             now = time.perf_counter()
-            if now - last_called[0] >= interval:
+            if (now - last_called[0]) * 1000 >= ms:
                 last_called[0] = now
                 return func(*args, **kwargs)
         return wrapper
     return decorator
 
-def memoize_frame(func: Callable):
+def batch_process(data: list, size: int):
+    for i in range(0, len(data), size):
+        yield data[i:i + size]
+
+def memoize_per_frame(func: Callable):
     cache = {}
+    def clear_cache():
+        cache.clear()
     @functools.wraps(func)
     def wrapper(*args):
         if args not in cache:
             cache[args] = func(*args)
         return cache[args]
+    wrapper.clear = clear_cache
     return wrapper
 
-class PerformanceTimer:
-    def __init__(self, label: str):
-        self.label = label
-    def __enter__(self):
-        self.start = time.perf_counter()
-        return self
-    def __exit__(self, *args):
-        elapsed = (time.perf_counter() - self.start) * 1000
-        print(f'[{self.label}] execution time: {elapsed:.3f}ms')
-
-def clamp(val: float, min_val: float, max_val: float) -> float:
-    return max(min_val, min(val, max_val))
-
-def lerp(start: float, end: float, alpha: float) -> float:
-    return start + (end - start) * clamp(alpha, 0.0, 1.0)
+class EntityPool:
+    def __init__(self, factory: Callable):
+        self._pool = []
+        self._factory = factory
+    def acquire(self) -> Any:
+        return self._pool.pop() if self._pool else self._factory()
+    def release(self, obj: Any):
+        self._pool.append(obj)
