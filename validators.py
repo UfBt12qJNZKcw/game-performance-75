@@ -1,36 +1,37 @@
-from typing import Any, Dict, Optional
+import functools
+import logging
 
-MAX_FRAME_TIME_MS = 33.3
-MIN_INPUT_VAL = -1.0
-MAX_INPUT_VAL = 1.0
+class PerformanceValidationError(Exception):
+    pass
 
-class InputSanitizer:
-    def __init__(self, sensitivity: float = 1.0):
-        self.sensitivity = sensitivity
+def robust_input_guard(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+            if result is None:
+                raise PerformanceValidationError("Null metric detected in frame processing")
+            return result
+        except (TypeError, ValueError, ZeroDivisionError) as e:
+            logging.error(f"Invalid telemetry data stream: {e}")
+            return None
+    return wrapper
 
-    def validate_axis(self, value: Any) -> float:
-        if not isinstance(value, (int, float)):
-            return 0.0
-        clamped = max(MIN_INPUT_VAL, min(MAX_INPUT_VAL, float(value)))
-        return clamped * self.sensitivity
+class MetricValidator:
+    @staticmethod
+    @robust_input_guard
+    def validate_fps(fps_value):
+        """Sanitizes framerate data, caps at 1000 and filters anomalies"""
+        fps = float(fps_value)
+        if fps < 0:
+            raise PerformanceValidationError("Negative fps detected")
+        return min(fps, 1000.0)
 
-    def is_packet_sane(self, data: Dict[str, Any]) -> bool:
-        required = ['x', 'y', 'timestamp']
-        if not all(k in data for k in required):
-            return False
-        
-        # Sanity check for drift or malformed timestamps
-        if not isinstance(data['timestamp'], (int, float)) or data['timestamp'] < 0:
-            return False
-            
+    @staticmethod
+    def frame_sanity_check(data_packet):
+        """Ensures frame packet contains essential timing nodes"""
+        required = ['delta', 'draw_calls', 'gpu_temp']
+        if not all(k in data_packet for k in required):
+            missing = [k for k in required if k not in data_packet]
+            raise PerformanceValidationError(f"Missing keys: {missing}")
         return True
-
-def process_frame_input(raw_data: Dict[str, Any], sanitizer: InputSanitizer) -> Optional[Dict[str, float]]:
-    if not sanitizer.is_packet_sane(raw_data):
-        return None
-
-    return {
-        'x': sanitizer.validate_axis(raw_data['x']),
-        'y': sanitizer.validate_axis(raw_data['y']),
-        'ts': float(raw_data['timestamp'])
-    }
